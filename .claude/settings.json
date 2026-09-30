@@ -1,9 +1,9 @@
 {
   "permissions": {
-    "allow": [
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)"
+    "ask": [
+      "Bash(git push *)",
+      "mcp__github__push_files",
+      "mcp__github__create_or_update_file"
     ]
   }
 }
