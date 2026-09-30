@@ -8,4 +8,5 @@
 - 根拠(URL、日付、コードの場所)を添える。
 
 ## 目次
-(ファイルを追加したら、ここにリンクを足す)
+- [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点
+- [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 説明書・スキル・権限・フックについての研究を新しい順に
