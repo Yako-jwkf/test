@@ -4,7 +4,7 @@ Claude Code の設定(CLAUDE.md・スキル・サブエージェント)と、ミ
 
 ## 構成
 - `docs/knowledge/`: 調べたこと・決めたこと(1トピック1ファイル)。作業前に `docs/knowledge/README.md` の目次から関連ファイルを読む。追記は `/add-knowledge` で行う。
-- `.claude/skills/`: `/reflect`(指摘をルール1行に変換)、`/retest`(ルールが効いているかを事例で再テスト)、`/add-knowledge`(ナレッジ追記)。
+- `.claude/skills/`: `/reflect`(指摘をルール1行に変換)、`/retest`(ルールが効いているかを事例で再テスト)、`/add-knowledge`(ナレッジ追記)、`/proofread`(技術文書の推敲。意味が一意に読めない箇所だけ最小限直す)。
 - `.claude/agents/`: `researcher`(読み取り専用の調査)、`reviewer`(差分レビュー)。`subject`・`subject-bare`・`judge` は `/retest` 専用。
 - `prompts/`: 3 Agent 構成(要件定義→リサーチ→実行)用のシステムプロンプト。上のサブエージェントとは別物で、Claude Code は自動では読まない。
 
