@@ -10,3 +10,5 @@
 ## 目次
 - [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点
 - [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 説明書・スキル・権限・フックについての研究を新しい順に
+- [ミスから作ったルールの台帳](mistakes.md): CLAUDE.md の各ルールの日付ときっかけ。10行上限の運用
+- [ミスの実例](mistake-cases.md): ルールを変えたときに再テストするための、入力・悪い答え・良い答えの条件
