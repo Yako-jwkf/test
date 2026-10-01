@@ -35,3 +35,5 @@
 - https://code.claude.com/docs/en/hooks
 - https://code.claude.com/docs/en/best-practices
 - `.claude/settings.json`(このリポジトリ)
+- クラウドセッションの途中で `.claude/skills/` に新しいスキルを足すと、すぐに一覧へ現れた。一方 `.claude/agents/` に新しいサブエージェントを足しても、同じセッション内では「Agent type not found」になった(2026-10-01、v2.1.286 で確認。公式ドキュメントは数秒で検出とするが、クラウドでは再現しなかった)。新しいサブエージェントは次のセッションから使う。
+- クラウドセッションでは、同じアカウントの過去セッションの会話記録を `list_sessions`・`list_events`(claude-code-remote の道具)で読める。事例1の原文はこれで取り出した(2026-10-01)。自動メモリと違い、セッションをまたいで届く。
