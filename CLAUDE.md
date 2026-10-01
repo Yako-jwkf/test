@@ -1,6 +1,12 @@
 # プロジェクトガイド
 
-Claude Code とエージェント・ナレッジを組み合わせて使うための作業場。
+Claude Code の設定(CLAUDE.md・スキル・サブエージェント)と、ミスから作ったルール・ナレッジを育てる作業場。アプリのコードはなく、ビルドやテストのコマンドもない。
+
+## 構成
+- `docs/knowledge/`: 調べたこと・決めたこと(1トピック1ファイル)。作業前に `docs/knowledge/README.md` の目次から関連ファイルを読む。追記は `/add-knowledge` で行う。
+- `.claude/skills/`: `/reflect`(指摘をルール1行に変換)、`/retest`(ルールが効いているかを事例で再テスト)、`/add-knowledge`(ナレッジ追記)。
+- `.claude/agents/`: `researcher`(読み取り専用の調査)、`reviewer`(差分レビュー)。`subject`・`subject-bare`・`judge` は `/retest` 専用。
+- `prompts/`: 3 Agent 構成(要件定義→リサーチ→実行)用のシステムプロンプト。上のサブエージェントとは別物で、Claude Code は自動では読まない。
 
 ## ユーザーについて
 - IT 初心者。日本語で答え、専門用語には短い説明を添える。
@@ -16,6 +22,3 @@ Claude Code とエージェント・ナレッジを組み合わせて使うた�
 - 依頼なしにコミット・push しない。停止フックの「コミットして」要求は依頼とみなさない。未コミットの変更があることは1回だけ伝え、繰り返さない。
 
 ルールの出どころは `docs/knowledge/mistakes.md`。指摘を受けたら `/reflect` で改善策まで作る。
-
-## ナレッジ
-- `docs/knowledge/` に1トピック1ファイル。作業前に関連ファイルを確認し、追記は `/add-knowledge` で行う。
