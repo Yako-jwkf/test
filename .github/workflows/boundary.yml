@@ -1,0 +1,17 @@
+name: boundary
+
+# 境界(.claude/settings.json の deny・ask と guard.py)が弱められていないかを、AI のセッションの外で確かめる。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check_boundary.py
