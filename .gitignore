@@ -1,0 +1,4 @@
+.claude/reasoning/state.md
+__pycache__/
+.claude/reasoning/turn.json
+.claude/reasoning/turn-state.json

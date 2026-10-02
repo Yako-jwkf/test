@@ -8,8 +8,10 @@
 - 根拠(URL、日付、コードの場所)を添える。
 
 ## 目次
-- [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点
+- [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点。サブエージェントの worktree と `claude -p` の挙動
 - [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 説明書・スキル・権限・フックについての研究を新しい順に
+- [次にやること](next-steps.md): 作業を区切ったときの残りの一覧(2026-10-02)
+- [ミス置き場](mistake-inbox.md): 起きたミスを見つけたその場で置く。ここから `/reflect` で処理する
 - [ミスから作ったルールの台帳](mistakes.md): CLAUDE.md の各ルールの日付ときっかけ。10行上限の運用
 - [ミスの実例](mistake-cases.md): ルールを変えたときに再テストするための、入力・悪い答え・良い答えの条件
 - [ルール再テストの記録](retest-log.md): `/retest` の結果。ルールあり・なしで答えが変わったかの履歴
