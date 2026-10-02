@@ -1,12 +1,40 @@
 {
   "permissions": {
+    "deny": [
+      "Edit(/.claude/agents/judge.md)",
+      "Edit(/.claude/skills/retest/**)",
+      "Edit(/.claude/hooks/guard.py)",
+      "Edit(/scripts/check_boundary.py)",
+      "Edit(/.github/workflows/boundary.yml)"
+    ],
     "ask": [
       "Bash(git push *)",
       "mcp__github__push_files",
-      "mcp__github__create_or_update_file"
-    ]
+      "mcp__github__create_or_update_file",
+      "Edit(/.claude/settings.json)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/.claude/skills/**)",
+      "Edit(/.claude/agents/**)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/.claude/reasoning/README.md)",
+      "Edit(/docs/knowledge/mistakes.md)",
+      "Edit(/docs/knowledge/mistake-cases.md)"
+    ],
+    "disableBypassPermissionsMode": "disable"
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.py"]
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

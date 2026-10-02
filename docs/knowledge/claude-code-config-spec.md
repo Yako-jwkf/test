@@ -23,7 +23,19 @@
 - 反応できる出来事は30種類以上ある(PreToolUse、PostToolUse、Stop、SessionStart、InstructionsLoaded など)。PreToolUse や Stop などは、操作を止めることもできる。
 - 設定できる場所は settings ファイルのほか、スキルやサブエージェントのファイルの先頭部分(frontmatter)。
 
+## 2026-10-02 に追加で確かめた仕様(v2.1.287)
+- ask ルールに当たる操作は、どのモードでも自動許可されない(bypassPermissions でも)。PreToolUse フックが「allow」を返しても deny・ask は残る。フックの終了コード2は、allow ルールより先に止める。
+- `Edit` の deny は、Edit/Write ツール、`cat`・`sed`・`tee` など認識されるコマンド、`> file` の行き先に効く。python や node のように自分でファイルを開く処理には効かない。それを止めるのは sandbox(Bash だけを OS レベルで囲う)。
+- ファイルの規則は `Edit(path)` と `Read(path)` だけが判定に使われる。`Write(path)` は警告が出るだけで効かない。`/path` は設定ファイルのある場所から、`//path` が絶対パス。
+- `.claude/` などの保護パスへの書き込みは、auto モード(v2.1.283 から最初のモード)では判定用 AI が許可を決める。確実に人に聞かせたいなら ask を書く。
+- sandbox は依存(Linux では bwrap など)が欠けると、既定では sandbox なしで動く。`failIfUnavailable: true` で起動を止められる。このクラウド環境には bwrap がなかった。
+- スキルの `allowed-tools` は事前許可で、道具を絞らない。絞るのは `disallowed-tools`。
+- サブエージェントの `bypassPermissions` 指定は、親が default・dontAsk・plan のときは無視される。
+- `claude -p --output-format json` の結果に `total_cost_usd`(手元の推定値)が入る。`--bare` は再現性に向くが API キーが要る。`--bare` なしの `-p` は、信頼していないフォルダでもプロジェクトのフックと `.mcp.json` を確認なしで動かす。
+- フックで `${CLAUDE_PROJECT_DIR}` を使うときは `args` を書く形(exec form)が推奨。
+
 ## このリポジトリで確かめたこと
+- settings.json にフックを足すと、同じセッションの次の操作からすぐ効いた(2026-10-02、v2.1.287)。
 - 自動メモリ(Claude が自分で取るメモ)は、そのコンピューターの中にしか残らない。クラウドでは次のセッションに引き継がれないので、知識はこの `docs/knowledge/` にコミットして残す。
 - ターンの終わりに「コミットして push して」と促すフック(`~/.claude/stop-hook-git-check.sh`)は、このリポジトリではなく、クラウド環境の起動設定(`~/.claude/launcher-settings.json`)から来ている。
 - `.claude/settings.json` の `permissions.ask` に `Bash(git push *)` を入れたところ、クラウドセッションでも push の前に承認画面が出た(2026-09-30 確認)。
@@ -49,6 +61,7 @@
 - https://code.claude.com/docs/en/permissions
 - https://code.claude.com/docs/en/hooks
 - https://code.claude.com/docs/en/best-practices
+- https://code.claude.com/docs/en/permission-modes / https://code.claude.com/docs/en/sandboxing / https://code.claude.com/docs/en/skills / https://code.claude.com/docs/en/sub-agents / https://code.claude.com/docs/en/headless(2026-10-02)
 - https://code.claude.com/docs/en/sub-agents(frontmatter の `isolation`・`omitClaudeMd`・`hooks`・`disallowedTools`。2026-10-01 に WebFetch の要約で読んだ。本文の全文は読んでいない)
 - `.claude/settings.json`(このリポジトリ)
 - クラウドセッションの途中で `.claude/skills/` に新しいスキルを足すと、すぐに一覧へ現れた。一方 `.claude/agents/` に新しいサブエージェントを足しても、同じセッション内では「Agent type not found」になった(2026-10-01、v2.1.286 で確認。公式ドキュメントは数秒で検出とするが、クラウドでは再現しなかった)。新しいサブエージェントは次のセッションから使う。
