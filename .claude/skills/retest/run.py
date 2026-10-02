@@ -2,7 +2,8 @@
 """事例を、条件ごとの専用フォルダで `claude -p` に答えさせる(/retest の答える役)。
 
 使い方: python3 run.py <事例番号> <回数> <出力フォルダ> [条件,...]
-  条件: mech(今の作業中の版) / prev(最後にコミットした版) / none(CLAUDE.md なし)。省略すると3つとも。
+  <出力フォルダ>/plan.md(計画ファイル)がないと動かない。書式は PLAN_KEYS を参照。
+  条件: mech(今の作業中の版) / prev(仕組みを入れる前の版。PREV_REF) / none(CLAUDE.md なし)。省略すると3つとも。
 
 - 各回に専用フォルダを作り、そこで `claude -p` を動かす。CLAUDE.md は本番どおり自動で読み込まれる。
 - 答え合わせになるファイル(LEAK_FILES)は専用フォルダに置かない。本体のリポジトリと出力フォルダは読めないように設定で止める。
@@ -22,6 +23,8 @@ LEAK_FILES = [
     ".claude/reasoning/state.md",
 ]
 MODEL = os.environ.get("RETEST_MODEL", "claude-opus-5-5")
+# 仕組み(.claude/reasoning/・フック)を入れる前の最後のコミット。比べる相手を変えるときは環境変数 RETEST_PREV_REF で指定する
+PREV_REF = os.environ.get("RETEST_PREV_REF", "12f8bd7")
 SANDBOX_ROOT = "/tmp/retest-sandboxes"
 TURN_TIMEOUT = 900
 
@@ -48,7 +51,8 @@ def fill_workspace(cond, ws):
             os.makedirs(os.path.dirname(os.path.join(ws, f)) or ws, exist_ok=True)
             shutil.copy2(os.path.join(REPO, f), os.path.join(ws, f))
     elif cond == "prev":
-        data = subprocess.run(["git", "archive", "HEAD"], cwd=REPO, capture_output=True, check=True).stdout
+        # prev は「仕組みを入れる前の版」。HEAD にすると、仕組みをコミットした後は仕組み入りの版になってしまう(2026-10-02)
+        data = subprocess.run(["git", "archive", PREV_REF], cwd=REPO, capture_output=True, check=True).stdout
         with tarfile.open(fileobj=io.BytesIO(data)) as tar:
             tar.extractall(ws, members=[m for m in tar.getmembers() if m.name not in LEAK_FILES])
     elif cond != "none":
@@ -133,8 +137,24 @@ def run_one(cond, n, turns):
     return name, len(answers)
 
 
+# 測る前に書く計画。測りたいものを含まない事例で約13ドルを使った(2026-10-02)ため、書かないと動かない。
+PLAN_KEYS = ["測りたいもの:", "使う条件:", "費用の見込み:", "結果で決めること:"]
+
+
+def check_plan(out_dir):
+    path = os.path.join(out_dir, "plan.md")
+    text = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+    missing = [k for k in PLAN_KEYS
+               if not re.search(rf"^{re.escape(k)}\s*\S", text, re.M)]
+    if missing:
+        sys.exit(f"{path} に計画を書いてから動かしてください。足りない行: {' '.join(missing)}\n"
+                 "各行を「見出し: 中身」の形で書く。使う条件には、測りたいものを実際に測る条件の番号を書く。")
+    print(text, flush=True)
+
+
 if __name__ == "__main__":
     case_no, runs, OUT_DIR = sys.argv[1], int(sys.argv[2]), os.path.abspath(sys.argv[3])
+    check_plan(OUT_DIR)
     conds = sys.argv[4].split(",") if len(sys.argv) > 4 else ["mech", "prev", "none"]
     turns = read_turns(case_no)[: int(os.environ.get("RETEST_MAX_TURNS", "99"))]
     os.makedirs(OUT_DIR, exist_ok=True)
