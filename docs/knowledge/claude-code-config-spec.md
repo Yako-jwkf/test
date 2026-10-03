@@ -34,6 +34,13 @@
 - `claude -p --output-format json` の結果に `total_cost_usd`(手元の推定値)が入る。`--bare` は再現性に向くが API キーが要る。`--bare` なしの `-p` は、信頼していないフォルダでもプロジェクトのフックと `.mcp.json` を確認なしで動かす。
 - フックで `${CLAUDE_PROJECT_DIR}` を使うときは `args` を書く形(exec form)が推奨。
 
+## 2026-10-03 に追加で確かめた仕様(v2.1.288)
+- クラウドのセッションは、リポジトリの `.claude/settings.json` の `enabledPlugins`・`extraKnownMarketplaces` に書いたプラグインを入れない。`/plugin` コマンドもクラウドでは使えない。スキルは、リポジトリの `.claude/skills/` に置いたものと、claude.ai で有効にしたものが読み込まれる(公式 cloud-environments・claude-code-on-the-web の本文)。
+- prompt フック(AI に判断させるフック)は `ok`・`reason` を返すだけ。UserPromptSubmit で `ok: false` を返すとターンが終わる(発言が止まる)。Stop で `ok: false` を返すと、`reason` が Claude に戻って作業が続く(公式 hooks-guide の本文)。発言の判定のような「止めずに印をつける」用途には使えない。
+- UserPromptSubmit の command フックの標準出力は、発言の隣に文脈として足される(公式 hooks リファレンス。WebFetch の要約経由の引用)。
+- `claude -p` の最初の指示には、作業フォルダのパスと、サブエージェントの一覧(説明つき)が入る。答える役に書き写させて確かめた(このリポジトリの judge・subject の説明も見えていた)。
+- `claude -p` の `--max-budget-usd <ドル>` で1回の費用に上限をかけられ、`--tools ""` で道具なしで動かせた(`--help` と実行で確認)。
+
 ## このリポジトリで確かめたこと
 - settings.json にフックを足すと、同じセッションの次の操作からすぐ効いた(2026-10-02、v2.1.287)。
 - 自動メモリ(Claude が自分で取るメモ)は、そのコンピューターの中にしか残らない。クラウドでは次のセッションに引き継がれないので、知識はこの `docs/knowledge/` にコミットして残す。
@@ -62,6 +69,7 @@
 - https://code.claude.com/docs/en/hooks
 - https://code.claude.com/docs/en/best-practices
 - https://code.claude.com/docs/en/permission-modes / https://code.claude.com/docs/en/sandboxing / https://code.claude.com/docs/en/skills / https://code.claude.com/docs/en/sub-agents / https://code.claude.com/docs/en/headless(2026-10-02)
+- https://code.claude.com/docs/en/cloud-environments / https://code.claude.com/docs/en/claude-code-on-the-web / https://code.claude.com/docs/en/hooks-guide / https://code.claude.com/docs/en/hooks(2026-10-03)
 - https://code.claude.com/docs/en/sub-agents(frontmatter の `isolation`・`omitClaudeMd`・`hooks`・`disallowedTools`。2026-10-01 に WebFetch の要約で読んだ。本文の全文は読んでいない)
 - `.claude/settings.json`(このリポジトリ)
 - クラウドセッションの途中で `.claude/skills/` に新しいスキルを足すと、すぐに一覧へ現れた。一方 `.claude/agents/` に新しいサブエージェントを足しても、同じセッション内では「Agent type not found」になった(2026-10-01、v2.1.286 で確認。公式ドキュメントは数秒で検出とするが、クラウドでは再現しなかった)。新しいサブエージェントは次のセッションから使う。
