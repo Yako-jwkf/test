@@ -1,0 +1,466 @@
+# 学習システムの要件 v0.3(要件定義 Agent の出力)
+# 出どころ: ユーザーが 2026-10-03 の会話に貼った文(別の AI との会話で、要件定義 Agent が出力したもの)を、そのまま写した。
+# 中身は変えていない。prompts/requirement-agent-v1.4.md と照らした食い違い(success_criteria・delegation・source_span がないなど)は、
+# 2026-10-03 の会話で評価済みで、まだ直していない(要件定義 Agent に伝えて直す)。
+# .claude/skills/learn/SKILL.md の手順は、この項目(T1・C2・U3 など)を出どころとして書いている。
+requirement:
+  requirement_version: "v0.3"
+  status: "READY"
+  # ============================================================
+  # 1. PURPOSE
+  # ============================================================
+  purpose:
+    value:
+      - "ユーザーが任意の概念・分野・概念間の関係から学習を開始できるようにする"
+      - "入力された対象を知識構造上の現在地として扱う"
+      - "現在地から上位・前提・関連・下位の概念を構造化する"
+      - "必要な学習順を整理する"
+      - "Recallを基本フローとして学習状態を確認する"
+    provenance: "user_confirmed"
+  # ============================================================
+  # 2. TARGET
+  # ============================================================
+  target:
+    supported_entry_points:
+      - "分野・領域"
+      - "具体的な概念"
+      - "概念間の関係"
+      - "既知概念のRecall"
+    provenance: "agent_interpreted"
+    basis:
+      - "任意の地点から入れる"
+      - "全体→詳細"
+      - "任意地点→全体"
+  # ============================================================
+  # 3. CORE PRINCIPLE
+  # ============================================================
+  core_principle:
+    definition:
+      "ユーザーが入力した対象を現在地として扱い、
+       その現在地を知識構造の中に位置づける"
+    learning_directions:
+      - "全体 → 詳細"
+      - "任意地点 → 全体"
+    provenance: "user_confirmed"
+  # ============================================================
+  # 4. CURRENT LOCATION
+  # ============================================================
+  concept_structure:
+    current:
+      definition:
+        "ユーザーが今回入力した学習対象を現在地として扱う"
+      identification:
+        rule:
+          "入力対象をそのまま現在地の候補として扱う"
+      ambiguity:
+        rule:
+          "入力対象を一意に特定できない場合は確認する"
+      provenance:
+        definition: "agent_interpreted"
+        basis: "user_confirmed"
+      note:
+        "currentは説明対象そのものを指し、
+         currentから他の概念との関係を展開する"
+    upper:
+      definition:
+        "現在地より上位に位置する概念"
+      traversal_rule:
+        - "理解に必要な範囲を基本とする"
+        - "必要に応じて、より広い分野まで拡張する"
+      provenance: "user_confirmed"
+    prerequisite:
+      definition:
+        "現在地を理解するために前提となる概念"
+      relation_to_upper:
+        "上位概念とは別の関係として扱う"
+      provenance: "user_confirmed"
+    related:
+      definition:
+        "現在地と関連する概念"
+      provenance: "user_confirmed"
+    lower:
+      definition:
+        "現在地より下位に位置する概念"
+      provenance: "user_confirmed"
+  # ============================================================
+  # 5. RELATIONS
+  # ============================================================
+  relations:
+    rule:
+      - "基本的な関係を使用する"
+      - "必要に応じて関係を詳細化する"
+      - "必要に応じて関係タイプを追加する"
+    fixed_taxonomy:
+      value: false
+      provenance: "user_confirmed"
+    exact_relation_types:
+      status: "unknown"
+    constraint:
+      "Agentは既知のフレームワークや固定された概念分類を
+       ユーザーの指定なしにRequirementへ持ち込まない"
+  # ============================================================
+  # 6. TASKS
+  # ============================================================
+  tasks:
+    - id: "T1"
+      task:
+        "入力された対象を現在地として扱う"
+      provenance: "user_confirmed"
+    - id: "T2"
+      task:
+        "現在地から必要な範囲の上位概念を整理する"
+      provenance: "user_confirmed"
+    - id: "T3"
+      task:
+        "必要に応じて、より広い分野まで上位概念を拡張する"
+      provenance: "user_confirmed"
+    - id: "T4"
+      task:
+        "現在地の前提となる概念を整理する"
+      provenance: "user_confirmed"
+    - id: "T5"
+      task:
+        "現在地と関連する概念を整理する"
+      provenance: "user_confirmed"
+    - id: "T6"
+      task:
+        "現在地の下位概念を整理する"
+      provenance: "user_confirmed"
+    - id: "T7"
+      task:
+        "必要な学習順を整理する"
+      provenance: "user_confirmed"
+    - id: "T8"
+      task:
+        "Recallを基本フローとして実施する"
+      provenance: "user_confirmed"
+    - id: "T9"
+      task:
+        "Recallで不足・誤り・曖昧さが確認された場合、
+         必要な概念へ戻る"
+      provenance: "agent_interpreted"
+      selection_rule:
+        status: "unknown"
+    - id: "T10"
+      task:
+        "Agentが先に学ぶべき概念があると判断した場合、
+         学習順を勝手に確定せずユーザーに確認する"
+      provenance: "user_confirmed"
+  # ============================================================
+  # 7. LEARNING ORDER
+  # ============================================================
+  learning_order:
+    required:
+      value: true
+      provenance: "user_confirmed"
+    ordering_rule:
+      status: "unknown"
+      note:
+        "前提関係・難易度等の具体的な判定基準は
+         現時点ではユーザーによって指定されていない"
+    constraint:
+      "Agentは未指定の判定基準をユーザーの意図として扱わない"
+    user_confirmation:
+      required_when:
+        "Agentの判断によって学習順を確定する必要がある場合"
+  # ============================================================
+  # 8. RECALL
+  # ============================================================
+  recall:
+    status:
+      value: "basic_flow"
+      provenance: "user_confirmed"
+    flow:
+      - "Recall"
+      - "ユーザー自身の回答"
+      - "不足・誤り・曖昧さの確認"
+      - "必要な概念への再接続"
+    provenance:
+      flow: "agent_interpreted"
+    note:
+      "上記は既存の学習ループをRequirement上に構造化したもの"
+  # ============================================================
+  # 9. UNDERSTANDING STATE
+  # ============================================================
+  understanding_state:
+    handling:
+      value:
+        "Recall後に理解状態を扱う"
+      provenance: "agent_interpreted"
+    persistence:
+      status: "unknown"
+    update_method:
+      status: "unknown"
+    boundary:
+      note:
+        "理解状態を扱うことと、
+         それを永続保存することは同一視しない"
+      persistence_not_required_by_current_requirement:
+        value: true
+        provenance: "agent_interpreted"
+  # ============================================================
+  # 10. BASIC OUTPUT STRUCTURE
+  # ============================================================
+  deliverable:
+    base_structure:
+      - "現在地"
+      - "上位概念"
+      - "前提概念"
+      - "関連概念"
+      - "下位概念"
+      - "必要な学習順"
+      - "Recall"
+    provenance: "user_confirmed"
+    execution_note:
+      "基本構造であり、各項目を毎回同じ深度・分量で
+       機械的に埋めることまでは要求しない"
+  # ============================================================
+  # 11. STORY / RHYME
+  # ============================================================
+  story_rhyme:
+    status: "delegated"
+    provenance: "delegated"
+    note:
+      "具体的な扱いはAgentに委任されている"
+  # ============================================================
+  # 12. SCOPE
+  # ============================================================
+  scope:
+    included:
+      - "任意の地点からの学習開始"
+      - "現在地の特定"
+      - "現在地の位置づけ"
+      - "上位概念の整理"
+      - "前提概念の整理"
+      - "関連概念の整理"
+      - "下位概念の整理"
+      - "概念間の関係整理"
+      - "必要な学習順の整理"
+      - "Recall"
+      - "Recall後の不足・誤り・曖昧さの確認"
+      - "理解状態の扱い"
+    excluded:
+      - "原資料そのものの保存"
+      - "MARS実装"
+      - "Graph DB等の実装"
+      - "実験そのもの"
+      - "Blog生成"
+      - "作品制作"
+      - "間隔反復スケジューリング"
+    boundary_notes:
+      understanding_persistence:
+        status: "unknown"
+      spaced_repetition:
+        status: "excluded"
+      note:
+        "理解状態の扱いと間隔反復スケジューリングは別物として扱う"
+  # ============================================================
+  # 13. CONSTRAINTS
+  # ============================================================
+  constraints:
+    - id: "C1"
+      rule:
+        "上位概念と前提概念を同一視しない"
+      provenance: "user_confirmed"
+    - id: "C2"
+      rule:
+        "Agentが学習順を勝手に確定しない"
+      provenance: "user_confirmed"
+    - id: "C3"
+      rule:
+        "入力地点を上位概念からの開始に限定しない"
+      provenance: "user_confirmed"
+    - id: "C4"
+      rule:
+        "未指定の関係分類・学習順判定基準を
+         ユーザー意図として扱わない"
+      provenance: "agent_interpreted"
+    - id: "C5"
+      rule:
+        "曖昧な現在地を勝手に確定しない"
+      provenance: "agent_interpreted"
+  # ============================================================
+  # 14. DEPENDENCIES
+  # ============================================================
+  dependencies:
+    - dependent:
+        "上位・前提・関連・下位の構造化"
+      depends_on:
+        "現在地の特定"
+    - dependent:
+        "必要な学習順"
+      depends_on:
+        "概念構造"
+    - dependent:
+        "Recall"
+      depends_on:
+        "学習対象の構造化"
+    - dependent:
+        "不足・誤り・曖昧さの確認"
+      depends_on:
+        "Recall"
+    - dependent:
+        "必要な概念への再接続"
+      depends_on:
+        "Recall後の確認結果"
+  # ============================================================
+  # 15. UNKNOWN
+  # ============================================================
+  unknowns:
+    specification_uncertainty:
+      - id: "U1"
+        item:
+          "関係タイプの具体的な分類・名称"
+      - id: "U2"
+        item:
+          "学習順を決定する具体的な判定基準"
+      - id: "U3"
+        item:
+          "Recall後にどの概念へ戻るかの選択基準"
+      - id: "U4"
+        item:
+          "理解状態をどのように更新するか"
+      - id: "U5"
+        item:
+          "理解状態を永続化するか"
+    delegated:
+      - id: "D1"
+        item:
+          "Story / Rhymeの具体的な扱い"
+  # ============================================================
+  # 16. UNCERTAINTY
+  # ============================================================
+  uncertainty:
+    specification:
+      status: "remaining_non_material"
+      note:
+        "複数の詳細仕様は未確定だが、
+         基本的なRequirementの実行可能性を阻害しないものとして管理する"
+    model:
+      status: "managed"
+      note:
+        "Agent解釈はuser_confirmedと区別して保持する"
+  # ============================================================
+  # 17. PROVENANCE
+  # ============================================================
+  provenance:
+    user_stated:
+      - "任意の地点から入れる"
+      - "全体→詳細"
+      - "任意地点→全体"
+      - "上位と前提を分ける"
+      - "基本的な関係を使い、必要なら詳細化・追加する"
+      - "Recallを基本フローにする"
+      - "基本出力構造"
+      - "学習順変更時はユーザーに確認する"
+    user_confirmed:
+      - "1AB"
+      - "2A"
+      - "3ABC"
+      - "4A"
+      - "5D"
+      - "6B"
+      - "7C"
+      - "8C"
+    delegated:
+      - "Story / Rhyme"
+    agent_interpreted:
+      - "currentの具体的定義"
+      - "Recall後の再接続"
+      - "理解状態の扱い"
+      - "曖昧なcurrentへの確認"
+      - "詳細な依存関係表現"
+    unknown:
+      - "関係タイプの詳細分類"
+      - "学習順の判定基準"
+      - "Recall後の戻り先選択基準"
+      - "理解状態の更新方法"
+      - "理解状態の永続化"
+  # ============================================================
+  # 18. SUFFICIENCY
+  # ============================================================
+  sufficiency:
+    status: "sufficient"
+    missing_material_requirements: []
+    rationale:
+      "後続Agentは、ユーザーが入力した対象を現在地として扱い、
+       基本出力構造に沿って概念構造を整理し、
+       学習順とRecallまで実行するための基本Requirementを持つ。
+       未確定の詳細仕様についてはunknownとして保持されており、
+       それらをユーザー意図として勝手に確定する必要はない。"
+  # ============================================================
+  # 19. CONFIRMATION
+  # ============================================================
+  confirmation:
+    status: "confirmed"
+    confirmed_items:
+      - "上位概念の探索範囲"
+      - "上位概念と前提概念の区別"
+      - "関係構造の基本方針"
+      - "Recallを基本フローに含める"
+      - "Story / RhymeをAgentに委任"
+      - "基本出力構造"
+      - "学習順変更時にユーザーへ確認する"
+      - "全体→詳細と任意地点→全体の両方を扱う"
+  # ============================================================
+  # 20. FINAL GEMI AUDIT
+  # ============================================================
+  final_gemi_audit:
+    status: "passed"
+    checks:
+      - "新しい目的を追加していない"
+      - "未知情報を事実化していない"
+      - "心理・意図を追加していない"
+      - "因果関係を追加していない"
+      - "能力評価を追加していない"
+      - "人格評価を追加していない"
+      - "類似概念への置換を行っていない"
+      - "Scopeを不必要に拡張していない"
+      - "Unknownを確定値に変換していない"
+      - "Agent解釈をuser_statedとして扱っていない"
+      - "ユーザー定義の概念構造を保持している"
+      - "provenanceを保持している"
+  # ============================================================
+  # 21. READY CRITERIA
+  # ============================================================
+  ready_check:
+    material_requirement_exists: true
+    task_defined: true
+    material_scope_defined: true
+    material_ambiguity: false
+    material_missing: false
+    material_conflict: false
+    required_constraints_defined: true
+    required_success_criteria:
+      status: "sufficient_for_current_scope"
+    important_uncertainty:
+      managed: true
+    unknowns_explicit: true
+    downstream_agent_can_execute_without_inventing_material_requirements: true
+    final_gemi_audit: true
+    status: "READY"
+  # ============================================================
+  # 22. CHANGE HISTORY
+  # ============================================================
+  change_history:
+    - version: "v0.1"
+      source: "初期要件整理"
+      change:
+        "基本構造・Scope・Unknownを整理"
+    - version: "v0.2"
+      source: "ユーザー回答 1AB, 2A, 3ABC, 4A, 5D, 6B, 7C, 8C"
+      change:
+        "主要な仕様不確実性を解消し、
+         基本出力構造・学習方針・確認ルールを確定"
+    - version: "v0.3"
+      source: "改善点レビュー"
+      change:
+        - "currentの具体仕様を追加"
+        - "曖昧なcurrentは確認するルールを追加"
+        - "学習順の判定基準をunknownとして明示"
+        - "理解状態と永続化を分離"
+        - "理解状態の更新方法をunknownとして明示"
+        - "dependenciesの表記をdependent/depends_onへ変更"
+        - "T9の戻り先選択基準をunknownとして明示"
+        - "UnknownとAgent解釈の境界を整理"
+        - "Gemi Auditを再実施"
