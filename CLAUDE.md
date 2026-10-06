@@ -4,8 +4,8 @@ Claude Code の設定(CLAUDE.md・スキル・サブエージェント)と、ミ
 
 ## 構成
 - `docs/knowledge/`: 調べたこと・決めたこと(1トピック1ファイル)。作業前に `docs/knowledge/README.md` の目次から関連ファイルを読む。追記は `/add-knowledge` で行う。
-- `.claude/skills/`: `/reflect`(指摘やミス置き場の未処理を、ルール・スキル・フックに変換)、`/retest`(ルールが効いているかを事例で再テスト)、`/add-knowledge`(ナレッジ追記)、`/proofread`(技術文書の推敲。意味が一意に読めない箇所だけ最小限直す)。
-- `.claude/agents/`: `researcher`(読み取り専用の調査)、`reviewer`(差分レビュー)。`subject`・`subject-bare`・`judge` は `/retest` 専用。
+- `.claude/skills/`: `/reflect`(指摘やミス置き場の未処理を、ルール・スキル・フックに変換)、`/retest`(ルールが効いているかを事例で再テスト)、`/add-knowledge`(ナレッジ追記)、`/proofread`(技術文書の推敲。意味が一意に読めない箇所だけ最小限直す)、`/learn`(学習の流れ。要件は `docs/learning/requirement-v0.3.yaml`)。
+- `.claude/agents/`: `researcher`(読み取り専用の調査)、`reviewer`(差分レビュー)。`judge` は `/retest` 専用。`subject`・`subject-bare` は `/retest` が `run.py` になってから使っていない(`docs/knowledge/next-steps.md` の16)。
 - `.claude/reasoning/`: 会話をまたぐ推論の状態(本題・指摘・命題)。評価・設計・調査のターンと指摘を受けたターンは、`README.md` の手順で `state.md` を読んで更新してから答える。
 - `.claude/hooks/`: `audit-stop.py`(④監査ゲート)。返答を終える前に、文字で確かめられる点検をして、引っかかれば止めて直させる。いまは「人についての一般化を断りなしに断定していないか」と「『しかない』『作れない』などの言い切りに仮定の断りがあるか」の2つ。`inbox-guard.py`(ミス置き場の書き漏れ防止)。ユーザーの発言に指摘らしい言葉があったのに、そのターンでミス置き場を更新していなければ止める。`state-guard.py`(状態ファイルの点検)。返答が「本題:」で始まるのに `state.md` を更新していなければ止め、本題の欄を書き換えたのに返答で「本題の変更」を明示していなければ止める。撤回した命題に依存する命題が見直されていなければ止める。ユーザーの発言が短い(40字以内)のに、返答の1行目に原文がなければ止める。`session-start.sh`(会話開始の点検)。会話の始めに、main に入っていない `claude/*` ブランチと、ミスの判定の要約を出す。
 - ミスの記録: `docs/knowledge/mistake-inbox.md`(出来事を1行ずつ。「対策」の列は対策を置いたかだけ)と `docs/knowledge/mistake-causes.md`(原因ごとの推測・対策・擬似解消関数)。直ったかは `python3 scripts/mistake_check.py` で判定する。

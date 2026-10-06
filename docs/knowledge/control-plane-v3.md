@@ -30,7 +30,7 @@
 | 段 | 中身 | 理由 |
 |---|---|---|
 | 1. deny(AI は変えられない) | `judge.md`、`skills/retest/`(`run.py` を含む)、`hooks/guard.py`、`scripts/check_boundary.py`、`.github/workflows/boundary.yml` | 採点と境界そのもの |
-| 2. ask(人が承認すれば変えられる) | `git push`、GitHub への書き込み、`settings.json`、`CLAUDE.md`、スキル、サブエージェント、`.claude/hooks/` の残り(PR #5 の3つ)、`.claude/reasoning/README.md`、`mistakes.md`、`mistake-cases.md` | 振る舞いを変える部品。直す回数が多い |
+| 2. ask(人が承認すれば変えられる) | `git push`、GitHub への書き込み、`settings.json`、`CLAUDE.md`、スキル、サブエージェント、`.claude/hooks/` の残り(PR #5 の3つと、2026-10-06 の `session-start.sh`)、`.claude/reasoning/README.md`、`mistakes.md`、`mistake-cases.md`、`mistake-causes.md` と `scripts/mistake_check.py`(2026-10-06 に追加) | 振る舞いを変える部品と、直ったかの判定に使う表・台本。直す回数が多い |
 | 3. 追記のみ | `retest-log.md`(guard.py が判定) | 記録 |
 
 - `disableBypassPermissionsMode: "disable"`(全確認を省くモードを使えなくする)
@@ -38,7 +38,7 @@
   - 段1のファイルを、読む以外のコマンドで扱う Bash を止める。保護ファイルの一覧は settings.json の deny から読むので、一覧は1か所にまとまっている。区切りの判定は引用符を理解し、`for … do` の中身もコマンドとして調べる。
   - `retest-log.md` は、追記・挿入と、Git の衝突の目印の行だけを消す編集を許す。
   - `git reset --hard`、`git checkout -- .`、`git restore`、`git clean` では確認画面を出す。
-- `scripts/check_boundary.py`: 設定16項目とフック29件の試験(止める・確認画面・通すの3通りを確かめる)。CI(`.github/workflows/boundary.yml`)でも動く。
+- `scripts/check_boundary.py`: 設定16項目とフック29件の試験(止める・確認画面・通すの3通りを確かめる)。CI(`.github/workflows/boundary.yml`)でも動く。2026-10-06 も同じ数で OK。2026-10-06 に ask へ足した `mistake-causes.md`・`mistake_check.py` は、この試験の項目に入っていない(試験の台本は deny なので、足すには変更手順が要る)。
 - `run.py`(`/retest`)は、専用フォルダを作るときに、境界の設定(権限の規則・bypass の禁止・guard.py)を3条件とも外す。境界は測る対象ではないため。外さないと、mech だけ `state.md` を書けなかった(2026-10-02)。
 - 1日目(段階0)の版は、`subject`・`subject-bare` と `.claude/hooks/` 全体も deny にしていた。PR #5 とつなぐときに、上の3段へ変えた。
 
@@ -58,6 +58,7 @@
 - guard.py は文字列で判断する。試験の手順をファイルに書いてから実行したら、保護パスに触れる操作でも止まらなかった(コピー上の試験で実際に起きた)。`cd` してから相対パスで書く、変数でパスを組み立てる、なども同じ。
 - 確実に止めるには sandbox が要る(deny ルールが sandbox の書き込み禁止にも入る)。しかしこのクラウド環境には `bwrap` がなく、仕様では依存が欠けると sandbox なしで動く。そのため sandbox は入れていない。ローカルで使う場合は `sandbox.enabled`・`allowUnsandboxedCommands: false`・`failIfUnavailable: true` を検討する。
 - `retest-log.md` を Claude が書く以上、作り話の記録は防げない。CI では Claude を動かせないので、再実行による検出もまだない。
+- ask の段は、Edit などファイル編集の道具を通したときだけ承認画面が出る。Bash の `git merge` や python で書くと、承認画面なしで変わる(2026-10-06、PR #7〜#9 の取り込みで実際にそうなった)。guard.py が見るのは deny の段だけ。ask のファイルの変更は、PR の審査で見る([改良案 E2](improvement-proposals-2026-10-06.md))。
 - CI が赤でもマージを止めるには、GitHub 側でブランチの保護設定が要る。このリポジトリで使えるかは未確認。
 
 ## 保護ファイルを変える手順
