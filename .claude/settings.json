@@ -18,11 +18,23 @@
       "Edit(/.claude/hooks/**)",
       "Edit(/.claude/reasoning/README.md)",
       "Edit(/docs/knowledge/mistakes.md)",
-      "Edit(/docs/knowledge/mistake-cases.md)"
+      "Edit(/docs/knowledge/mistake-cases.md)",
+      "Edit(/docs/knowledge/mistake-causes.md)",
+      "Edit(/scripts/mistake_check.py)"
     ],
     "disableBypassPermissionsMode": "disable"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Edit|Write",
