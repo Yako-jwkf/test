@@ -58,6 +58,7 @@
 - guard.py は文字列で判断する。試験の手順をファイルに書いてから実行したら、保護パスに触れる操作でも止まらなかった(コピー上の試験で実際に起きた)。`cd` してから相対パスで書く、変数でパスを組み立てる、なども同じ。
 - 確実に止めるには sandbox が要る(deny ルールが sandbox の書き込み禁止にも入る)。しかしこのクラウド環境には `bwrap` がなく、仕様では依存が欠けると sandbox なしで動く。そのため sandbox は入れていない。ローカルで使う場合は `sandbox.enabled`・`allowUnsandboxedCommands: false`・`failIfUnavailable: true` を検討する。
 - `retest-log.md` を Claude が書く以上、作り話の記録は防げない。CI では Claude を動かせないので、再実行による検出もまだない。
+- ask の段は、Edit などファイル編集の道具を通したときだけ承認画面が出る。Bash の `git merge` や python で書くと、承認画面なしで変わる(2026-10-06、PR #7〜#9 の取り込みで実際にそうなった)。guard.py が見るのは deny の段だけ。ask のファイルの変更は、PR の審査で見る([改良案 E2](improvement-proposals-2026-10-06.md))。
 - CI が赤でもマージを止めるには、GitHub 側でブランチの保護設定が要る。このリポジトリで使えるかは未確認。
 
 ## 保護ファイルを変える手順
