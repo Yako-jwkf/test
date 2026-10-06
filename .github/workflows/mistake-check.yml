@@ -1,0 +1,19 @@
+name: mistake-check
+
+# ミス置き場と原因の表の書き方の誤り(原因のない行、表にない番号など)と、判定の台本の試験を、
+# AI のセッションの外で確かめる(2026-10-06)。直ったかの判定(未解消があること)では落とさない。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/test_mistake_check.py
+      - run: python3 scripts/mistake_check.py
