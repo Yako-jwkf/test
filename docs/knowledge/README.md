@@ -13,6 +13,7 @@
 - [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 説明書・スキル・権限・フックについての研究を新しい順に
 - [pstack-claude の評価と案の試験(2026-10-03)](pstack-evaluation.md): プラグインは入れない理由。「別の読み手」「毎ターン判定フック」「目隠し」を試した結果と限界
 - [次にやること](next-steps.md): 作業を区切ったときの残りの一覧(2026-10-02)
+- [Focus Tracking の設計](focus-tracking-design.md): 利用者の設計メモ(タイマー+Focus Tracking)の評価の到達点。基準は「部品が開く分岐まで見る」。決まっていない分かれ目
 - [ミス置き場](mistake-inbox.md): 起きたミスを見つけたその場で置く。ここから `/reflect` で処理する
 - [ミスの原因の表](mistake-causes.md): 置き場の行を原因ごとに束ね、推測した原因・対策・擬似解消関数(解消したかの仮の判定)を持つ。判定は `python3 scripts/mistake_check.py`(2026-10-06)
 - [/reflect 2026-10-06 の対策案](reflect-2026-10-06.md): 未処理の行への対策案(G1〜G6、H1〜H4)。採用は未決定
