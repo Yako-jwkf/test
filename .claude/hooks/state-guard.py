@@ -5,12 +5,20 @@
 (c) そのターンで state.md の「会話全体の目的」の行を書き換えたのに、返答で「本題の変更」を明示していなければ止める。
 (b) 撤回した命題に依存している命題が、「撤回」にも「見直し済み」にもなっていなければ止める(撤回の連鎖)。
     本題を確認なしに書き換えたミス(2026-10-02)への対策。返答で変更を明示し、ユーザーに確認を求めれば止めない。
-- UserPromptSubmit: ターンの開始時刻と、その時点の目的の行を .claude/reasoning/turn-state.json に記録する。
-- Stop: 上の (a)(c) を調べる。止めるのは1回だけ(stop_hook_active が true なら何もしない)。
+(d) ユーザーの発言が短い(40字以内)のに、「本題:」で始まる返答の1行目に発言の原文がなければ止める。
+    推測の本題に合わせて問いを1行目で言い換え、問いに答えなかったミス(2026-10-06「なんで論点ずらした？」)への対策。
+- UserPromptSubmit: ターンの開始時刻と、その時点の目的の行と、短い発言の原文を .claude/reasoning/turn-state.json に記録する。
+- Stop: 上の (a)(b)(c)(d) を調べる。止めるのは1回だけ(stop_hook_active が true なら何もしない)。
 """
-import json, os, sys, time
+import json, os, re, sys, time
 
 GOAL_PREFIX = "- 会話全体の目的"
+SHORT_PROMPT = 40
+
+
+def norm(text):
+    """比べるときは空白と「」を無視する。"""
+    return re.sub(r"[\s「」]", "", text)
 
 
 def goal_line(state_path):
@@ -58,7 +66,8 @@ def main():
         if prompt.startswith("Stop hook feedback") or "[Subagent hand-back]" in prompt or prompt.startswith("Another Claude session"):
             return
         os.makedirs(os.path.dirname(turn_file), exist_ok=True)
-        json.dump({"start": time.time(), "goal": goal_line(state)}, open(turn_file, "w"), ensure_ascii=False)
+        short = prompt.strip() if len(norm(prompt)) <= SHORT_PROMPT else None
+        json.dump({"start": time.time(), "goal": goal_line(state), "prompt": short}, open(turn_file, "w"), ensure_ascii=False)
         return
     if event != "Stop" or data.get("stop_hook_active") or not os.path.exists(state):
         return
@@ -72,6 +81,11 @@ def main():
     if first.startswith("本題:") and os.path.getmtime(state) < turn["start"]:
         reasons.append("返答が「本題:」で始まっていますが、このターンで .claude/reasoning/state.md を更新していません。"
                        ".claude/reasoning/README.md の手順どおり、本題の位置づけ・指摘・命題を更新してください。")
+    short = turn.get("prompt")
+    if first.startswith("本題:") and short and norm(short) not in norm(first):
+        reasons.append("ユーザーの発言「" + short + "」は短いのに、返答の1行目に原文がありません。"
+                       "1行目の「今回はその△の部分」の△に、発言を言い換えずに「」で入れてください。"
+                       "推測の本題に合わせて問いを言い換えると、問いに答えなくなります(.claude/reasoning/README.md 手順5)。")
     now_goal = goal_line(state)
     if turn.get("goal") and now_goal != turn["goal"] and "本題の変更" not in reply:
         reasons.append("このターンで state.md の「会話全体の目的」を書き換えましたが、返答に「本題の変更」の明示がありません。"
