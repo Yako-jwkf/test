@@ -69,7 +69,8 @@ if [ -z "$inner" ]; then
   else
     day="${latest%.md}"
     age=$(( ( $(TZ=Asia/Tokyo date +%s) - $(TZ=Asia/Tokyo date -d "$day" +%s) ) / 86400 ))
-    diffs=$(awk '/^## 1\. 食い違い/{on=1;next} /^## /{on=0} on && /^- / && !/^- なし$/' "$news/issues/$latest" | wc -l)
+    # 号の形(2026-10-08 から): 「## 食い違い」の節に、1件ずつ「### D1 …」の見出しがある
+    diffs=$(awk '/^## 食い違い/{on=1;next} /^## /{on=0} on && /^### D[0-9]+ /' "$news/issues/$latest" | wc -l)
     old=""
     [ "$ok" -ne 0 ] && old="(取得に失敗したので、手元の古い写し)"
     echo "- news の最新の号: issues/${latest}(${age}日前、食い違い ${diffs} 件)${old}。読むときは「号を見せて」(/news スキル)"
