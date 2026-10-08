@@ -7,10 +7,16 @@
 - 先頭に1行で要約を書く。
 - 根拠(URL、日付、コードの場所)を添える。
 
+## 外の情報(news)
+- 外の情報(Claude Code の変更・研究・発表・読み物)は、別のリポジトリ https://github.com/Yako-jwkf/news に2週ごとの号として置く(2026-10-08 から)。ここには、この作業場で決めたこと・試したこと・測ったことを置く。
+- 会話の始めの点検(`.claude/hooks/session-start.sh`)が、news の最新の号と食い違いの数を出す。
+
 ## 目次
 - [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点。サブエージェントの worktree と `claude -p` の挙動。ネットワーク設定の効き方と、ほかのリポジトリの扱い
 - [Control Plane v3](control-plane-v3.md): 評価役・記録を仕組みで守る境界(deny・ask・フック・CI)と、その検証結果。保護ファイルを変える手順。部品をつなぐ設計案(未決定)
-- [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 説明書・スキル・権限・フックについての研究を新しい順に
+- [エージェント設定に関する研究(2026年2〜9月)](agent-config-research-2026.md): 研究をこのリポジトリにどう反映したか。研究の表そのものは news の `topics/agent-config-research.md` に移した(2026-10-08)
+- [news の食い違いへの判断](news-decisions.md): news の号が出した食い違いを、取り込んだか・見送ったかの記録。news の定期実行が読む(2026-10-08)
+- [頭の良さの要素集めの引き継ぎ](intelligence-elements.md): 2026-10-06〜07 の会話の本題・次にやること・ミス。集めた要素は news の `topics/intelligence.md` に移した(2026-10-08)
 - [pstack-claude の評価と案の試験(2026-10-03)](pstack-evaluation.md): プラグインは入れない理由。「別の読み手」「毎ターン判定フック」「目隠し」を試した結果と限界
 - [次にやること](next-steps.md): 残りの作業の一覧。済んだもの・見送ったものの記録と、利用者について分かったこと(2026-10-06 に整理)
 - [Focus Tracking の設計](focus-tracking-design.md): 利用者の設計メモ(タイマー+Focus Tracking)の評価の到達点。基準は「部品が開く分岐まで見る」。決まっていない分かれ目
