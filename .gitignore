@@ -2,3 +2,4 @@
 __pycache__/
 .claude/reasoning/turn.json
 .claude/reasoning/turn-state.json
+.news/
