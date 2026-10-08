@@ -9,7 +9,8 @@
 
 ## 外の情報(news)
 - 外の情報(Claude Code の変更・研究・発表・読み物)は、別のリポジトリ https://github.com/Yako-jwkf/news に2週ごとの号として置く(2026-10-08 から)。ここには、この作業場で決めたこと・試したこと・測ったことを置く。
-- 会話の始めの点検(`.claude/hooks/session-start.sh`)が、news の最新の号と食い違いの数を出す。
+- 会話の始めの点検(`.claude/hooks/session-start.sh`)が、news の写しを作業フォルダの中の `.news/`(git の対象外)に取り、最新の号と食い違いの数を出す。
+- 号を読むときは `/news` スキル(「号を見せて」)。号を画面に出し、「あなた向けの1件」と食い違いを短く案内する。取り込んだか・見送ったかは [news-decisions.md](news-decisions.md) に残す。
 
 ## 目次
 - [Claude Code の設定の仕様](claude-code-config-spec.md): CLAUDE.md・settings・フックの仕組みと、クラウドでの注意点。サブエージェントの worktree と `claude -p` の挙動。ネットワーク設定の効き方と、ほかのリポジトリの扱い

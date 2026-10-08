@@ -5,7 +5,9 @@
 # 2. ミスの原因ごとの判定(scripts/mistake_check.py)の要約を出す。
 # 3. news(外の情報の号、https://github.com/Yako-jwkf/news)の最新の号の日付と、食い違いの数を出す(2026-10-08)。
 #    号は定期実行が2週に1回書く。15日より古ければ、定期実行が止まっているかもしれないと知らせる。
-#    news は test の外に、読むだけの写しとして取る(test の中に置くと git の差分に出るため)。
+#    news は作業フォルダの中の .news/ に、読むだけの写しとして取る(.gitignore で git の対象外)。
+#    はじめは作業フォルダの外(~/.cache)に置いたが、アプリで利用者が開けるのは作業フォルダの中だけで、
+#    表示した場所を開けなかった(原因 C18、2026-10-08)。読むときは /news スキルで号を画面に出す。
 # 失敗しても会話は止めない(いつも終了コード 0)。クラウドの会話でだけ動く。
 set -uo pipefail
 
@@ -50,13 +52,12 @@ if [ -z "$inner" ] && [ -f scripts/mistake_check.py ]; then
 fi
 
 if [ -z "$inner" ]; then
-  news="${HOME:-/root}/.cache/news-readonly"
+  news=".news"
   if [ -d "$news/.git" ]; then
     timeout 20 git -C "$news" fetch --quiet --depth 1 origin main >/dev/null 2>&1 \
       && git -C "$news" reset --quiet --hard origin/main >/dev/null 2>&1
     ok=$?
   else
-    mkdir -p "$(dirname "$news")"
     timeout 20 git clone --quiet --depth 1 https://github.com/Yako-jwkf/news "$news" >/dev/null 2>&1
     ok=$?
   fi
@@ -71,7 +72,7 @@ if [ -z "$inner" ]; then
     diffs=$(awk '/^## 1\. 食い違い/{on=1;next} /^## /{on=0} on && /^- / && !/^- なし$/' "$news/issues/$latest" | wc -l)
     old=""
     [ "$ok" -ne 0 ] && old="(取得に失敗したので、手元の古い写し)"
-    echo "- news の最新の号: issues/${latest}(${age}日前、食い違い ${diffs} 件)${old}。読むときは ${news}/issues/${latest}"
+    echo "- news の最新の号: issues/${latest}(${age}日前、食い違い ${diffs} 件)${old}。読むときは「号を見せて」(/news スキル)"
     if [ "$age" -gt 15 ]; then
       echo "  - 15日より古いので、定期実行が止まっているかもしれません(claude.ai/code/routines で確かめる)。"
     fi
