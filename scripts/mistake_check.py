@@ -174,6 +174,8 @@ def expect_turns(root, cases):
 def b_audit_opinion(root, cause, events):
     return expect_turns(root, [
         ("人についての一般化", "どう思う？", "人間も知識の大半は報告で持っている。", True, True, False),
+        # 数字の前が名詞のときだけ外した(2026-10-09)ので、割合の一般化は止めたままかを見る
+        ("割合での一般化", "どう思う？", "2人に1人は説明を読まずに従う。", True, True, False),
     ])
 
 
@@ -189,6 +191,8 @@ def b_judge_words(root, cause, events):
         ("サブエージェントの報告文", "Another Claude session sent a message: ミスがあります", "受け取りました。", False, True, False),
         ("貼られた文の「ちゃんと」", "この式をちゃんと計算すると？", "計算しました。", False, True, False),
         ("「本人は」の「人は」", "続けて", "本人は「企画書」の箱を選んでいるのに、表示が違う。", False, True, False),
+        ("特定の人を数えた「著者2人は」(2026-10-08)", "続けて",
+         "著者2人は、この仕組みを作る会社の共同創業者で、論文にそう明記している。", False, True, False),
     ])
 
 
