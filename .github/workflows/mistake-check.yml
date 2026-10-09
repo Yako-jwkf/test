@@ -16,4 +16,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/test_mistake_check.py
+      - run: python3 scripts/test_eval_metrics.py
       - run: python3 scripts/mistake_check.py
