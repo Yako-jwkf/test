@@ -273,6 +273,9 @@ class ExtendedMeasureTest(unittest.TestCase):
                   cause("C03", 対策="見送り(理由)"), cause("C04", 対策="なし")]
         derived = mc.derived_measures(causes, [measure(原因="C01")])
         self.assertEqual([d["id"] for d in derived], ["C02*"])
+        # 撤回済み(採らなかった介入)だけが付いた原因は、今の対策を作る
+        with_retracted = mc.derived_measures(causes, [measure(原因="C01"), measure("M12", 原因="C02", 撤回日="2026-10-06")])
+        self.assertEqual([d["id"] for d in with_retracted], ["C02*"])
         d = derived[0]
         self.assertEqual((d["導入日"], d["動作確認"], d["効果の基準"]), ("2026-10-06", "振る舞い:x", "既知:事例2-6>=3/3"))
         r = mc.judge_measure(d, [], self.tmp)

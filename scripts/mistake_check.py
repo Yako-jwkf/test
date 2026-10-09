@@ -627,7 +627,8 @@ def derived_measures(causes, measures):
 
     中身を推測で書き足さないため、作用の仮説などは空のまま。名前に「未登録」と付け、見直し候補でも区別する(2026-10-09)。
     """
-    covered = {c for m in measures for c in split_top(m.get("原因", ""))}
+    # 撤回済み・採らなかった介入は、その原因の今の対策ではないので数えない
+    covered = {c for m in measures if not m.get("撤回日") for c in split_top(m.get("原因", ""))}
     out = []
     for c in causes:
         if c["id"] in covered or not c.get("対策日") or c.get("対策", "").startswith("見送り"):
