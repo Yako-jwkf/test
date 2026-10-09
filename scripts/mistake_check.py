@@ -34,7 +34,10 @@ INBOX = "docs/knowledge/mistake-inbox.md"
 CAUSES = "docs/knowledge/mistake-causes.md"
 BEGIN, END = "<!-- 判定結果 ここから -->", "<!-- ここまで -->"
 FIELDS = ("原因の推測", "対策", "対策日", "擬似解消関数", "最後の再テスト")
-MEASURE_FIELDS = ("原因", "場所", "導入日", "作用の仮説", "動作確認", "再生", "効果の基準", "効果の結果", "副作用", "撤回日")
+MEASURE_FIELDS = ("原因", "場所", "導入日", "作用の仮説", "動作確認", "再生", "効果の基準", "効果の結果", "副作用", "撤回日",
+                  "決定", "証拠", "費用")
+# 決定の欄の書き出し(採否の決定。状態とは別。2026-10-09)
+DECISIONS = ("採用", "条件付き採用", "再設計", "撤回", "不採用", "残す", "未決定")
 EVAL_KINDS = ("既知", "未知", "通常")
 # 導入からこの日数たっても効果が確かめられていない対策は、見直し候補にする(改良案 C1)
 REVIEW_DAYS = 14
@@ -125,16 +128,25 @@ def parse_measures(path):
 
 
 def parse_criteria(text):
-    """効果の基準。例: 既知:事例2-1>=2/3、未知:なし(まだ事例がない)。戻り値: (基準の一覧, 書き方の誤り)"""
+    """効果の基準。戻り値: (基準の一覧, 書き方の誤り)
+
+    絶対の形: 既知:事例2-1>=2/3(3回中2回以上)。
+    比べる形: 未知:事例8-3>=+2/5(対照より5回中2回以上多い)、通常:事例11-1>=-1/5(対照より2回以上は減らない)。
+    対照は効果の結果の括弧に「対照 4/5」と書く(対策を外した版や CLAUDE.md なしの結果)。2026-10-09、事例8-1 が対策なしでも
+    5/5 で、絶対の形では効果と課題の易しさを区別できなかったため。
+    事例がまだなければ 未知:なし(理由)。
+    """
     out, errs = [], []
     for s in split_top(text):
         if s.startswith("なし"):
             continue
-        m = re.fullmatch(r"(既知|未知|通常):事例(\d+)-(\d+)>=(\d+)/(\d+)", s)
+        m = re.fullmatch(r"(既知|未知|通常):事例(\d+)-(\d+)>=([+-]?)(\d+)/(\d+)", s)
         n = re.fullmatch(r"(既知|未知|通常):なし.*", s)
         if m:
-            out.append({"kind": m.group(1), "key": f"事例{m.group(2)}-{m.group(3)}",
-                        "need": Fraction(int(m.group(4)), int(m.group(5))), "spec": s})
+            sign = {"+": 1, "-": -1}.get(m.group(4))
+            need = Fraction(int(m.group(5)), int(m.group(6))) * (sign or 1)
+            out.append({"kind": m.group(1), "key": f"事例{m.group(2)}-{m.group(3)}", "rel": sign is not None,
+                        "need": need, "spec": s})
         elif n:
             out.append({"kind": n.group(1), "key": None, "need": None, "spec": s})
         else:
@@ -150,9 +162,12 @@ def parse_results(text):
             continue
         m = re.fullmatch(r"(既知|未知|通常):事例(\d+)-(\d+)=(\d+)/(\d+)\((" + DATE + r")([^)]*)\)", s)
         if m:
+            ref = re.search(r"対照[^0-9]*(\d+)/(\d+)", m.group(7))
             out.append({"kind": m.group(1), "key": f"事例{m.group(2)}-{m.group(3)}",
                         "got": Fraction(int(m.group(4)), int(m.group(5))), "raw": f"{m.group(4)}/{m.group(5)}",
-                        "date": m.group(6), "old_form": OLD_FORM in m.group(7)})
+                        "date": m.group(6), "old_form": OLD_FORM in m.group(7),
+                        "ref": Fraction(int(ref.group(1)), int(ref.group(2))) if ref else None,
+                        "ref_raw": f"{ref.group(1)}/{ref.group(2)}" if ref else None})
         else:
             errs.append(f"効果の結果の書き方: {s}")
     return out, errs
@@ -432,6 +447,62 @@ def run_check(spec, cause, root, events):
     return kind, False, f"知らない種類: {spec}"
 
 
+# ---------- 同じ日の再発(git で、その版に対策があったかを調べる) ----------
+
+def git_out(root, *args):
+    try:
+        p = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return p.stdout.strip() if p.returncode == 0 else ""
+
+
+def markers_of(specs):
+    """擬似解消関数・動作確認のうち、残存:ファイル:文字列 を (ファイル, 文字列) にする。"""
+    out = []
+    for s in split_top(specs or ""):
+        if s.startswith("残存:"):
+            path, _, text = s[len("残存:"):].partition(":")
+            out.append((path, text))
+    return out
+
+
+def same_day_recurrences(root, events, since, causes, markers, cache):
+    """対策を置いた日と同じ日の出来事のうち、対策が入った版で起きた疑いのあるものを返す。
+
+    出来事の行を初めて足したコミットから、main の歴史に入っている一番近いコミット(会話が始まった版とみなす)を探し、
+    そこに対策の文(残存の印)がそろっているかを見る。日付だけでは同じ日の前後が分からず、2026-10-02 の C09 の
+    「ルールがあっても起きた」行を数えていなかった(2026-10-09)。
+    ただし、行を足した会話とミスが起きた会話は同じとは限らない(後の会話での言い換え・取り込み。2026-10-09 に C04・M06 で
+    取り違えを確かめた)。そこで、行を足したコミットの日が出来事の日と同じで、行の先頭の【】に「再発」と書いてあるものだけ
+    confirmed にし、ほかは疑い(要確認)として返す。git の歴史がない(CI の浅い取得など)・印がないときは何も返さない。
+    """
+    if not since or not markers:
+        return []
+    if "main" not in cache:
+        ref = next((r for r in ("origin/main", "main") if git_out(root, "rev-parse", "--verify", "-q", r)), None)
+        cache["main"] = set(git_out(root, "rev-list", "--first-parent", ref).split("\n")) if ref else set()
+    if not cache["main"] or not git_out(root, "rev-parse", "--verify", "-q", "HEAD~1"):
+        return []
+    out = []
+    for e in events:
+        if e["date"] != since or not set(e["causes"]) & set(causes):
+            continue
+        key = "row:" + re.sub(r"^【[^】]*】", "", e["what"])[:25]
+        if key not in cache:
+            line = git_out(root, "log", "--all", "--reverse", "--format=%H %ad", "--date=short", "-S" + key[4:], "--",
+                           INBOX).split("\n")[0]
+            first, _, day = line.partition(" ")
+            base = next((c for c in git_out(root, "rev-list", "--topo-order", first).split("\n") if c in cache["main"]),
+                        None) if first else None
+            cache[key] = (base, day)
+        base, day = cache[key]
+        if base and all(text in git_out(root, "show", f"{base}:{path}") for path, text in markers):
+            confirmed = day == e["date"] and bool(re.match(r"^【[^】]*再発[^】]*】", e["what"]))
+            out.append({**e, "same_day": True, "confirmed": confirmed})
+    return out
+
+
 # 原因の状態。「動く」「記録がある」「既知の失敗例に合格」は効果ではないので、名前で分ける(2026-10-09、A1)
 S_POSTPONED, S_NO_MEASURE, S_RECUR = "見送り", "未対策", "再発あり"
 S_BROKEN, S_KNOWN_FAIL = "動作不良", "既知の失敗例で不合格"
@@ -441,10 +512,14 @@ S_TEXT_ONLY = "記録のみ確認(効果は未評価)"
 S_UNEVALUATED = "効果は未評価"
 
 
-def judge(cause, events, root):
+def judge(cause, events, root, cache=None):
     mine = [e for e in events if cause["id"] in e["causes"]]
     since = cause.get("対策日", "")
     recur = [e for e in mine if since and e["date"] > since]
+    same = same_day_recurrences(root, events, since, [cause["id"]], markers_of(cause.get("擬似解消関数")),
+                                cache if cache is not None else {})
+    recur += [e for e in same if e["confirmed"]]
+    possible = [e for e in same if not e["confirmed"]]
     checks = [run_check(s, cause, root, events) for s in split_top(cause.get("擬似解消関数", "")) if s]
     if cause.get("対策", "").startswith("見送り"):
         status = S_POSTPONED
@@ -465,7 +540,7 @@ def judge(cause, events, root):
     else:
         status = S_UNEVALUATED
     return {"id": cause["id"], "name": cause["name"], "events": len(mine), "recur": recur,
-            "checks": checks, "status": status, "since": since}
+            "checks": checks, "status": status, "since": since, "possible": possible}
 
 
 # ---------- 対策ごとの判定 ----------
@@ -476,7 +551,7 @@ M_ORDER = (M_RETRACTED, M_SIDE, M_INSUFFICIENT, M_CONFIRMED, M_EVALUATING, M_UNE
 OP_OK, OP_BROKEN, OP_NONE = "動く", "動作不良", "確認なし"
 
 
-def judge_measure(m, events, root):
+def judge_measure(m, events, root, cache=None):
     """対策1つの状態を決める。動作(動くか)と効果(ミスが減ったか)を別に出す。
 
     効果確認済みにするには、既知・未知・通常タスクの3種類の基準が今の形でそろって合格し、本番の再発もないこと。
@@ -485,6 +560,10 @@ def judge_measure(m, events, root):
     since = m.get("導入日", "")
     targets = split_top(m.get("原因", ""))
     recur = [e for e in events if since and e["date"] > since and set(e["causes"]) & set(targets)]
+    same = same_day_recurrences(root, events, since, targets, markers_of(m.get("動作確認")),
+                                cache if cache is not None else {})
+    recur += [e for e in same if e["confirmed"]]
+    possible = [e for e in same if not e["confirmed"]]
     op = [run_check(s, m, root, events) for s in split_top(m.get("動作確認", "")) if s]
     replay = [run_check(s, m, root, events) for s in split_top(m.get("再生", "")) if s]
     criteria, _ = parse_criteria(m.get("効果の基準", ""))
@@ -501,6 +580,14 @@ def judge_measure(m, events, root):
             evals.append((c["kind"], f"{c['key']}: {note}", None))
             continue
         r = max(fresh, key=lambda x: x["date"])
+        if c.get("rel"):
+            if r["ref"] is None:
+                evals.append((c["kind"], f"{c['key']}: {r['raw']}({r['date']})。比べる形の基準なのに対照の結果がない", None))
+                continue
+            ok = r["got"] - r["ref"] >= c["need"]
+            evals.append((c["kind"], f"{c['key']}: {r['raw']}(対照 {r['ref_raw']}、基準 対照{c['spec'].split('>=')[1]}、"
+                                     f"{r['date']})", ok))
+            continue
         ok = r["got"] >= c["need"]
         evals.append((c["kind"], f"{c['key']}: {r['raw']}(基準 {c['spec'].split('>=')[1]}、{r['date']})", ok))
     sides = [s for s in split_top(m.get("副作用", "")) if s and not s.startswith("なし")]
@@ -531,7 +618,33 @@ def judge_measure(m, events, root):
         operation = OP_NONE
     return {"id": m["id"], "name": m["name"], "causes": targets, "since": since, "recur": recur,
             "op": op, "operation": operation, "replay": replay, "evals": evals, "sides": sides,
-            "suspected": [s for s in sides if not s.startswith("確認:")], "state": state, "flags": flags}
+            "suspected": [s for s in sides if not s.startswith("確認:")], "state": state, "flags": flags,
+            "decision": m.get("決定", ""), "derived": m.get("derived", False), "possible": possible}
+
+
+def derived_measures(causes, measures):
+    """対策の一覧に登録していない原因から、原因の表の項目(対策・対策日・擬似解消関数・最後の再テスト)で対策を1つ作る。
+
+    中身を推測で書き足さないため、作用の仮説などは空のまま。名前に「未登録」と付け、見直し候補でも区別する(2026-10-09)。
+    """
+    covered = {c for m in measures for c in split_top(m.get("原因", ""))}
+    out = []
+    for c in causes:
+        if c["id"] in covered or not c.get("対策日") or c.get("対策", "").startswith("見送り"):
+            continue
+        specs = split_top(c.get("擬似解消関数", ""))
+        known = []
+        for s in specs:
+            m = re.fullmatch(r"再テスト:(事例\d+-\d+>=\d+/\d+)", s)
+            if m:
+                known.append("既知:" + m.group(1))
+        results = [f"既知:{r.group(1)}={r.group(2)}({r.group(3)})" for r in
+                   re.finditer(r"(事例\d+-\d+)=(\d+/\d+)\((" + DATE + r")\)", c.get("最後の再テスト", ""))]
+        out.append({"id": c["id"] + "*", "name": f"{c['id']} の対策(未登録。原因の表から作った)",
+                    **{f: "" for f in MEASURE_FIELDS}, "原因": c["id"], "導入日": c["対策日"],
+                    "動作確認": "、".join(s for s in specs if s.startswith(("振る舞い:", "残存:"))),
+                    "効果の基準": "、".join(known), "効果の結果": "、".join(results), "derived": True})
+    return out
 
 
 def review_candidates(measure_results, cause_results, today):
@@ -555,6 +668,8 @@ def review_candidates(measure_results, cause_results, today):
             if days >= REVIEW_DAYS:
                 reasons.append(f"導入から {days} 日、効果が確かめられていない")
         if reasons:
+            if r.get("decision"):
+                reasons.append(f"決定: {r['decision']}")
             out.append((f"{r['id']} {r['name']}", reasons))
     covered = {c for r in measure_results for c in r["causes"]}
     for r in cause_results:
@@ -597,6 +712,8 @@ def structure_errors(events, causes, measures=()):
         for s in split_top(m.get("副作用", "")):
             if s and not re.match(r"^(確認|疑い):|^なし", s):
                 errs.append(f"{m['id']} の副作用は「確認:」「疑い:」「なし」で始める: {s[:30]}")
+        if m.get("決定") and not m["決定"].startswith(DECISIONS):
+            errs.append(f"{m['id']} の決定は「{'」「'.join(DECISIONS)}」のどれかで始める: {m['決定'][:30]}")
     return errs
 
 
@@ -613,7 +730,10 @@ def render(results, events, errors, measure_results=(), candidates=(), today=Non
     head = (f"判定日: {(today or datetime.date.today()).isoformat()} / 置き場の行: {len(events)}(うち対象外 {out_of_scope})"
             f" / 原因: {len(results)}({count(r['status'] for r in results)})")
     if measure_results:
-        head += f" / 対策: {len(measure_results)}({count(r['state'] for r in measure_results)}) / 見直し候補: {len(candidates)}"
+        derived = sum(1 for r in measure_results if r.get("derived"))
+        decided = sum(1 for _, reasons in candidates if any(x.startswith("決定:") for x in reasons))
+        head += (f" / 対策: {len(measure_results)}(うち未登録 {derived}。{count(r['state'] for r in measure_results)})"
+                 f" / 見直し候補: {len(candidates)}(決定済み {decided})")
     lines = [head]
     if errors:
         lines.append("書き方の誤り: " + " / ".join(errors))
@@ -621,7 +741,9 @@ def render(results, events, errors, measure_results=(), candidates=(), today=Non
               "### 原因ごと", "",
               "| 原因 | 出来事 | 対策後の再発(本番) | 擬似解消関数の結果 | 原因の状態 |", "|---|---|---|---|---|"]
     for r in results:
-        recur = "、".join(e["date"] for e in r["recur"]) if r["recur"] else "なし"
+        recur = "、".join(e["date"] + ("(同じ日。版で確認)" if e.get("same_day") else "") for e in r["recur"]) if r["recur"] else "なし"
+        if r.get("possible"):
+            recur += f"<br>同じ日の再発の疑い {len(r['possible'])} 件(要確認)"
         checks = "<br>".join(f"{kind} {mark[ok]}: {d}" for kind, ok, d in r["checks"]) or "なし"
         lines.append(f"| {r['id']} {r['name']} | {r['events']} | {recur} | {checks} | **{r['status']}** |")
     if measure_results:
@@ -632,10 +754,15 @@ def render(results, events, errors, measure_results=(), candidates=(), today=Non
             op = "<br>".join(f"{mark[ok]}: {d}" for _, ok, d in r["op"])
             replay = "<br>".join(d for _, _, d in r["replay"]) or "―"
             evals = "<br>".join(f"{k} {mark[ok]}: {d}" for k, d, ok in r["evals"]) or "基準なし"
-            recur = f"{len(r['recur'])} 件(最後 {max(e['date'] for e in r['recur'])})" if r["recur"] else "なし"
+            same = sum(1 for e in r["recur"] if e.get("same_day"))
+            recur = (f"{len(r['recur'])} 件(最後 {max(e['date'] for e in r['recur'])}"
+                     + (f"、うち同じ日 {same}" if same else "") + ")") if r["recur"] else "なし"
+            if r.get("possible"):
+                recur += f"<br>同じ日の再発の疑い {len(r['possible'])} 件(要確認)"
             sides = "<br>".join(r["sides"]) or "記録なし"
+            state = f"**{r['state']}**" + (f"<br>決定: {r['decision']}" if r.get("decision") else "")
             lines.append(f"| {r['id']} {r['name']} | {'、'.join(r['causes'])} | {r['since']} | {r['operation']}"
-                         f"{'<br>' + op if op else ''} | {replay} | {evals} | {recur} | {sides} | **{r['state']}** |")
+                         f"{'<br>' + op if op else ''} | {replay} | {evals} | {recur} | {sides} | {state} |")
         lines += ["", "### 見直し候補", "",
                   "直す・撤回する・残す(理由)を決める候補。候補になっただけでは消さない。消す前に、必要性・副作用・代わりの手を確かめる。", ""]
         lines += [f"- {name}: {'、'.join(reasons)}" for name, reasons in candidates] or ["- なし"]
@@ -652,8 +779,9 @@ def main(argv=None):
     causes = parse_causes(os.path.join(args.root, CAUSES))
     measures = parse_measures(os.path.join(args.root, CAUSES))
     errors = structure_errors(events, causes, measures)
-    results = [judge(c, events, args.root) for c in causes]
-    measure_results = [judge_measure(m, events, args.root) for m in measures]
+    cache = {}
+    results = [judge(c, events, args.root, cache) for c in causes]
+    measure_results = [judge_measure(m, events, args.root, cache) for m in measures + derived_measures(causes, measures)]
     candidates = review_candidates(measure_results, results, today)
     text = render(results, events, errors, measure_results, candidates, today)
     print(text)

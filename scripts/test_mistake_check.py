@@ -233,6 +233,103 @@ class MeasureStateTest(unittest.TestCase):
         self.assertEqual(len(self.judge(m, evs)["recur"]), 1)
 
 
+class ExtendedMeasureTest(unittest.TestCase):
+    """比べる形の基準・決定の欄・未登録の原因から作る対策(2026-10-09)。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def evals(self, m):
+        return mc.judge_measure(m, [], self.tmp)["evals"]
+
+    def test_relative_criterion_compares_with_control(self):
+        crit = "未知:事例8-3>=+2/5"
+        self.assertTrue(self.evals(measure(効果の基準=crit, 効果の結果="未知:事例8-3=4/5(2026-10-03、対照 1/5)"))[0][2])
+        self.assertFalse(self.evals(measure(効果の基準=crit, 効果の結果="未知:事例8-3=5/5(2026-10-03、対照 5/5)"))[0][2])
+        missing = self.evals(measure(効果の基準=crit, 効果の結果="未知:事例8-3=5/5(2026-10-03)"))[0]
+        self.assertIsNone(missing[2])
+        self.assertIn("対照の結果がない", missing[1])
+
+    def test_non_inferiority_criterion(self):
+        crit = "通常:事例11-1>=-1/5"
+        self.assertTrue(self.evals(measure(効果の基準=crit, 効果の結果="通常:事例11-1=4/5(2026-10-03、対照 5/5)"))[0][2])
+        self.assertFalse(self.evals(measure(効果の基準=crit, 効果の結果="通常:事例11-1=3/5(2026-10-03、対照 5/5)"))[0][2])
+
+    def test_decision_is_validated_and_shown(self):
+        self.assertEqual(mc.structure_errors([], [cause("C01")], [measure(決定="残す(理由、2026-10-09)")]), [])
+        errs = mc.structure_errors([], [cause("C01")], [measure(決定="たぶん消す")])
+        self.assertTrue(any("決定" in e for e in errs))
+        r = mc.judge_measure(measure(決定="再設計(理由)"), [event("2026-10-05", ["C01"])], self.tmp)
+        cands = mc.review_candidates([r], [], datetime.date(2026, 10, 9))
+        self.assertIn("決定: 再設計(理由)", cands[0][1])
+
+    def test_derived_measures_come_only_from_unregistered_causes(self):
+        causes = [cause("C01", 対策="ルール", 対策日="2026-10-02"),
+                  cause("C02", 対策="フック", 対策日="2026-10-06", 擬似解消関数="振る舞い:x、再テスト:事例2-6>=3/3",
+                        最後の再テスト="事例2-6=2/3(2026-10-02)"),
+                  cause("C03", 対策="見送り(理由)"), cause("C04", 対策="なし")]
+        derived = mc.derived_measures(causes, [measure(原因="C01")])
+        self.assertEqual([d["id"] for d in derived], ["C02*"])
+        d = derived[0]
+        self.assertEqual((d["導入日"], d["動作確認"], d["効果の基準"]), ("2026-10-06", "振る舞い:x", "既知:事例2-6>=3/3"))
+        r = mc.judge_measure(d, [], self.tmp)
+        self.assertIn("今の形では未測定", r["evals"][0][1])          # 対策日より前の再テストは使わない
+
+
+class SameDayTest(unittest.TestCase):
+    """同じ日の再発を、git で行を足した版に対策があったかを見て数える(2026-10-09)。"""
+
+    def setUp(self):
+        self.repo = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.repo, "docs", "knowledge"))
+        self.git("init", "-q", "-b", "main")
+
+    def tearDown(self):
+        shutil.rmtree(self.repo)
+
+    def git(self, *args, date="2026-10-02T10:00:00"):
+        env = {**os.environ, "GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date}
+        import subprocess
+        subprocess.run(["git", "-C", self.repo, "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                       check=True, capture_output=True, env=env)
+
+    def commit(self, path, text, date="2026-10-02T10:00:00"):
+        with open(os.path.join(self.repo, path), "a", encoding="utf-8") as f:
+            f.write(text)
+        self.git("add", "-A", date=date)
+        self.git("commit", "-q", "-m", path, date=date)
+
+    def test_counts_only_marked_rows_recorded_with_measure_in_place(self):
+        self.commit("docs/knowledge/mistake-inbox.md", INBOX_HEAD)
+        self.commit("rule.md", "選択肢の行\n")
+        rows = ("| 2026-10-02 | 【前の行の再発。ルールがあっても起きた】2択で出した | 指摘 | 未処理 | C09 |\n"
+                "| 2026-10-02 | 印のない同じ日の行 | 指摘 | 未処理 | C09 |\n")
+        self.commit("docs/knowledge/mistake-inbox.md", rows)
+        events = mc.parse_inbox(os.path.join(self.repo, mc.INBOX))
+        got = mc.same_day_recurrences(self.repo, events, "2026-10-02", ["C09"], [("rule.md", "選択肢の行")], {})
+        self.assertEqual([e["confirmed"] for e in got], [True, False])
+        missing = mc.same_day_recurrences(self.repo, events, "2026-10-02", ["C09"], [("rule.md", "ない文")], {})
+        self.assertEqual(missing, [])
+
+    def test_row_recorded_later_is_not_confirmed(self):
+        # 後の日の会話が足した行(言い換え・取り込み)は、起きた会話と別かもしれないので数えない
+        self.commit("docs/knowledge/mistake-inbox.md", INBOX_HEAD)
+        self.commit("rule.md", "選択肢の行\n")
+        self.commit("docs/knowledge/mistake-inbox.md", "| 2026-10-02 | 【再発】後で足した行 | 指摘 | 未処理 | C09 |\n",
+                    date="2026-10-06T10:00:00")
+        events = mc.parse_inbox(os.path.join(self.repo, mc.INBOX))
+        got = mc.same_day_recurrences(self.repo, events, "2026-10-02", ["C09"], [("rule.md", "選択肢の行")], {})
+        self.assertEqual([e["confirmed"] for e in got], [False])
+
+    def test_no_history_means_nothing_is_counted(self):
+        self.commit("docs/knowledge/mistake-inbox.md", INBOX_HEAD + "| 2026-10-02 | 【再発】行 | 指摘 | 未処理 | C09 |\n")
+        events = mc.parse_inbox(os.path.join(self.repo, mc.INBOX))
+        self.assertEqual(mc.same_day_recurrences(self.repo, events, "2026-10-02", ["C09"], [("x", "y")], {}), [])
+
+
 class ReviewTest(unittest.TestCase):
     """見直し候補(C1)。候補を出すだけで、何も消さない。"""
 
