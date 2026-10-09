@@ -172,8 +172,117 @@ class DecideTest(unittest.TestCase):
         self.assertIsNone(il.choose(cand, h))                    # 同じ原因で足すが2回失敗したら、足すを出さない
 
 
+class HeldConditionTest(unittest.TestCase):
+    def test_not_applicable_is_held_not_broken(self):
+        # 流した回数は5回あるが、judge の「該当なし」で採点した回数が足りない条件は比べず、保留として書く
+        base = {"ok": True, "cases": {"x-1": [2, 5, 5], "x-3": [0, 1, 5]}, "normal": {}}
+        cand = {"ok": True, "cases": {"x-1": [4, 5, 5], "x-3": [0, 0, 5]}, "normal": {}}
+        decision, reason = il.decide("直す", base, cand)
+        self.assertEqual(decision, "採用候補")
+        self.assertIn("保留", reason)
+        self.assertIn("x-3", reason)
+        short = {"ok": True, "cases": {"x-1": [4, 4, 4], "x-3": [0, 0, 4]}, "normal": {}}
+        self.assertEqual(il.decide("直す", base, short)[0], "評価不能")   # 流した回数が足りないのは評価不能
+
+
+class RealPartsTest(LoopFixture):
+    """本物の実装役・評価役の部品。`claude -p` は差し替えて、費用なしで確かめる。"""
+
+    def setUp(self):
+        super().setUp()
+        os.makedirs(os.path.join(self.repo, ".claude", "skills", "retest"))
+        os.makedirs(os.path.join(self.repo, ".claude", "skills", "stress"))
+        with open(os.path.join(self.repo, ".claude", "skills", "retest", "run.py"), "w", encoding="utf-8") as f:
+            f.write('LEAK_FILES = ["docs/knowledge/mistake-cases.md"]\nLEAK_DIRS = (".claude/skills/stress/",)\n')
+        with open(os.path.join(self.repo, ".claude", "skills", "stress", "case.json"), "w", encoding="utf-8") as f:
+            f.write("{}")
+        os.makedirs(os.path.join(self.repo, ".claude", "agents"))
+        with open(os.path.join(self.repo, ".claude", "agents", "judge.md"), "w", encoding="utf-8") as f:
+            f.write("---\nname: judge\n---\n\n採点係の指示\n")
+        os.makedirs(os.path.join(self.repo, "docs", "knowledge"), exist_ok=True)
+        with open(os.path.join(self.repo, "docs", "knowledge", "mistake-causes.md"), "w", encoding="utf-8") as f:
+            f.write("## 対策の一覧\n\n### M01 本題の行\n- 原因: C01、C02\n- 場所: CLAUDE.md\n\n### M10 選択肢\n- 原因: C09\n")
+        with open(os.path.join(self.repo, "docs", "knowledge", "mistake-cases.md"), "w", encoding="utf-8") as f:
+            f.write("## 事例8\n\n- **良い答えの条件**:\n  1. 狭めない。\n  2. 外の語に触れる。\n- **機械判定**: なし\n\n## 事例9\n")
+        sh(self.repo, "git", "add", "-A")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "parts")
+
+    def test_apply_edits_is_all_or_nothing(self):
+        path = os.path.join(self.repo, "CLAUDE.md")
+        errors = il.apply_edits(self.repo, [{"file": "CLAUDE.md", "old": "# 試験", "new": "# 試験2"},
+                                            {"file": "CLAUDE.md", "old": "の印", "new": "x"}])   # 2か所に当たる
+        self.assertTrue(errors)
+        self.assertEqual(open(path, encoding="utf-8").read(), CLAUDE_MD)                    # どれも当てない
+        self.assertTrue(il.apply_edits(self.repo, [{"file": "../x", "old": "a", "new": "b"}]))
+        self.assertEqual(il.apply_edits(self.repo, [{"file": "CLAUDE.md", "old": "- 本題の行(M01 の印)\n", "new": ""}]), [])
+        self.assertNotIn("M01", open(path, encoding="utf-8").read())
+
+    def test_implementer_sees_no_leaks_and_script_applies_the_edit(self):
+        seen = {}
+
+        def fake_claude(prompt, cwd, model, extra=(), timeout=0):
+            seen["files"] = sorted(os.path.relpath(os.path.join(d, f), cwd) for d, _, fs in os.walk(cwd) for f in fs
+                                   if ".git" not in d)
+            seen["prompt"] = prompt
+            return {"total_cost_usd": 0.3, "structured_output": {
+                "hypothesis": "外すと前提の確認が減る", "edits": [{"file": "CLAUDE.md", "old": "- 本題の行(M01 の印)\n", "new": ""}]}}
+
+        orig = il.claude_json
+        il.claude_json = fake_claude
+        try:
+            impl = il.ClaudeImplementer({}).implement(self.repo, {"id": "M01"}, "外す", [], 1)
+        finally:
+            il.claude_json = orig
+        self.assertNotIn("docs/knowledge/mistake-cases.md", seen["files"])     # 事例の条件は見せない
+        self.assertFalse([f for f in seen["files"] if f.startswith(".claude/skills/stress/")])
+        self.assertIn("CLAUDE.md", seen["files"])
+        self.assertIn("- 原因: C01、C02", seen["prompt"])                     # 対策の記録を渡した
+        self.assertEqual(impl["cost_usd"], 0.3)
+        self.assertIsNone(impl["note"])
+        self.assertNotIn("M01", open(os.path.join(self.repo, "CLAUDE.md"), encoding="utf-8").read())
+
+    def test_conditions_and_causes_are_read_from_the_repo(self):
+        self.assertEqual(il.case_conditions(self.repo, "8"), {1: "狭めない。", 2: "外の語に触れる。"})
+        self.assertEqual(il.causes_of(self.repo, "HEAD", "M01"), ["C01", "C02"])
+        self.assertEqual(il.causes_of(self.repo, "HEAD", "M10"), ["C09"])
+
+    def test_judge_uses_a_third_vote_only_when_split(self):
+        table = "| 条件 | 判定 | 根拠 |\n|---|---|---|\n| 1 | {} | 「a」 |\n| 2 | 合格 | 「b」 |"
+        self.assertEqual(il.parse_judge_table(table.format("不合格"), {1, 2}), {1: "不合格", 2: "合格"})
+        self.assertIsNone(il.parse_judge_table("表なし", {1, 2}))
+        votes = iter(["合格", "不合格", "不合格"])
+        calls = []
+
+        def fake_claude(prompt, cwd, model, extra=(), timeout=0):
+            calls.append(1)
+            return {"result": table.format(next(votes)), "total_cost_usd": 0.01}
+
+        orig = il.claude_json
+        il.claude_json = fake_claude
+        try:
+            j = il.Judge(self.repo)
+            self.assertEqual(j.system, "採点係の指示")       # 前置き(---)を除いた本文を渡す
+            scored, cost = j.score(["答え"], {1: "a", 2: "b"})
+        finally:
+            il.claude_json = orig
+        self.assertEqual(len(calls), 3)                     # 条件1で割れたので3体目
+        self.assertEqual(scored, [{1: "不合格", 2: "合格"}])
+        self.assertAlmostEqual(cost, 0.03)
+
+    def test_all_iterations_start_from_the_same_commit(self):
+        self.run_loop({"outcomes": {"1": "same"}}, max_iter=1)
+        with open(os.path.join(self.repo, "CLAUDE.md"), "a", encoding="utf-8") as f:
+            f.write("- 後から足した行\n")
+        sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "later")
+        self.run_loop({"outcomes": {"2": "same"}}, max_iter=2)
+        h = self.history()
+        self.assertEqual(h[0]["base_commit"], h[1]["base_commit"])
+        self.assertNotIn("後から足した行", h[1]["diff"])
+
+
 class CliTest(unittest.TestCase):
-    def test_real_components_are_not_implemented_yet(self):
+    def test_needs_scenario_or_config(self):
+        # 偽物(--scenario)か本物(--config)を必ず選ぶ。どちらもなければ動かない
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(SystemExit):
                 il.main(["run", "--state", tmp])
