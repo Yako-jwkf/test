@@ -352,6 +352,21 @@ GUARD_CASES = [
     ("シェル関数の引数に保護ファイル名(設計どおり、2026-10-06)", "Bash",
      {"command": "run '{\"command\":\"cat .claude/agents/judge.md\"}' label"}, "止める"),
     ("保護ファイルの上書き(止まるべき)", "Bash", {"command": "echo hi > docs/knowledge/retest-log.md"}, "止める"),
+    # 2026-10-10 の直し(ヒアドキュメント・リダイレクト・git -C)で、新しい穴を作っていないかを見る
+    ("git show を保護外へリダイレクト(2026-10-09)", "Bash",
+     {"command": "git show HEAD:.claude/hooks/guard.py > /tmp/x/guard_copy.py"}, "通す"),
+    ("cat のヒアドキュメントを python に流す(止まるべき)", "Bash",
+     {"command": "cat <<'EOF' | python3\nopen('.claude/agents/judge.md','w')\nEOF"}, "止める"),
+    ("git apply のヒアドキュメント(止まるべき)", "Bash",
+     {"command": "git apply <<'EOF'\n+++ b/.claude/agents/judge.md\nEOF"}, "止める"),
+    ("終わりの印のない <<EOF の後ろの行(止まるべき)", "Bash",
+     {"command": "grep '<<EOF' a.txt\ncp /tmp/x .claude/agents/judge.md"}, "止める"),
+    ("ヒアドキュメントの後ろの行(止まるべき)", "Bash",
+     {"command": "cat > /tmp/x/t <<'EOF'\nmsg\nEOF\ncp /tmp/x .claude/agents/judge.md"}, "止める"),
+    ("保護ファイルへの追記のリダイレクト(止まるべき)", "Bash", {"command": "echo x >> .claude/agents/judge.md"}, "止める"),
+    ("git -C つきの reset --hard(確認画面)", "Bash", {"command": "git -C /home/user/test reset --hard"}, "確認画面"),
+    ("git -C つきの checkout で保護ファイルを戻す(止まるべき)", "Bash",
+     {"command": "git -C /home/user/test checkout -- .claude/agents/judge.md"}, "止める"),
 ]
 
 
