@@ -137,6 +137,13 @@ class LoopTest(LoopFixture):
         self.assertIn("評価の基準", e["reason"])
         self.assertIsNone(e["candidate_result"])                  # 評価する前に棄却した
 
+    def test_first_changed_file_keeps_its_name(self):
+        # 評価の基準のファイルだけを変えたとき(一覧の1行目になる)も、名前を欠かさずに棄却する
+        with open(os.path.join(self.repo, "docs", "knowledge", "mistake-cases.md"), "a", encoding="utf-8") as f:
+            f.write("x\n")
+        self.assertEqual(il.changed_files(self.repo), ["docs/knowledge/mistake-cases.md"])
+        self.assertTrue(il.touches_eval(il.changed_files(self.repo)))
+
     def test_history_is_append_only_across_runs(self):
         self.run_loop({"outcomes": {"1": "same"}}, max_iter=1)
         first = open(il.Store(self.state).history_file, encoding="utf-8").read()

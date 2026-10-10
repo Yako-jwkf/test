@@ -526,8 +526,11 @@ class ClaudeEvaluator:
 # ---------- ループ ----------
 
 def changed_files(worktree):
-    out = git(worktree, "status", "--porcelain")
-    return [line[3:] for line in out.split("\n") if line.strip()]
+    # git() は前後の空白を削るので使わない。" M CLAUDE.md" の頭の空白が消えると、1文字目が欠けて
+    # 評価の基準のファイルの判定をすり抜ける(2026-10-10、履歴に "LAUDE.md" と残った)
+    out = subprocess.run(["git", "-C", worktree, "status", "--porcelain", "-z", "--untracked-files=all"],
+                         capture_output=True, text=True, check=True).stdout
+    return [e[3:] for e in out.split("\0") if len(e) > 3]
 
 
 def touches_eval(files):
