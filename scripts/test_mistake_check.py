@@ -289,6 +289,10 @@ class SameDayTest(unittest.TestCase):
         self.repo = tempfile.mkdtemp()
         os.makedirs(os.path.join(self.repo, "docs", "knowledge"))
         self.git("init", "-q", "-b", "main")
+        # 自動の整理(gc・maintenance)を止める。commit の後に裏で走り、tearDown で消している最中に
+        # objects/pack を書くと rmtree が「Directory not empty」で落ちる(2026-10-10、CI の git 2.55 で起きた)
+        self.git("config", "gc.auto", "0")
+        self.git("config", "maintenance.auto", "false")
 
     def tearDown(self):
         shutil.rmtree(self.repo)

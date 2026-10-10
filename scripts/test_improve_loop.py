@@ -40,6 +40,9 @@ class LoopFixture(unittest.TestCase):
         with open(os.path.join(self.repo, "docs", "knowledge", "mistake-cases.md"), "w", encoding="utf-8") as f:
             f.write("# 事例\n")
         sh(self.repo, "git", "init", "-q")
+        # 自動の整理を止める(裏で objects/pack を書くと、tearDown の rmtree が落ちる。test_mistake_check.py と同じ)
+        sh(self.repo, "git", "config", "gc.auto", "0")
+        sh(self.repo, "git", "config", "maintenance.auto", "false")
         sh(self.repo, "git", "add", "-A")
         sh(self.repo, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init")
         self.state = os.path.join(self.tmp, "state")
