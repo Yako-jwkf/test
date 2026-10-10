@@ -1,0 +1,9 @@
+{
+  "created": "2026-10-09T05:16:29",
+  "iteration": 0,
+  "spent_usd": 4.7105,
+  "baseline": null,
+  "in_progress": null,
+  "stopped": "変更前の評価(基準値)がそろわない。評価環境を直すまで止める(事例1: 終了コード 0、答え 5/5、失敗 ['mech-1', 'mech-2', 'mech-3', 'mech-4', 'mech-5'] )",
+  "base_commit": "243ce5dbe74368028f9fe2a3b93dfed2284bfafe"
+}

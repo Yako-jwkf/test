@@ -269,6 +269,37 @@ class RealPartsTest(LoopFixture):
         self.assertEqual(scored, [{1: "不合格", 2: "合格"}])
         self.assertAlmostEqual(cost, 0.03)
 
+    def test_evaluation_failure_is_retried_later(self):
+        # 利用上限などの評価不能は案の結果ではないので、次に動かしたときにもう一度試す
+        h = [{"episode_id": "E001", "target": "M01", "kind": "外す", "causes": ["C01"], "decision": "評価不能"}]
+        cand = [{"id": "M01", "causes": ["C01"], "kinds": ["外す"]}]
+        self.assertEqual(il.choose(cand, h)[1], "外す")
+
+    def test_finished_cases_are_reused_after_a_stop(self):
+        out_root = os.path.join(self.tmp, "runs")
+        ev = il.ClaudeEvaluator({"suite": [{"case": "8", "judge": True}], "runs": 5}, out_root)
+        out = os.path.join(out_root, "E000-c8")
+        os.makedirs(out)
+        with open(os.path.join(out, "case_result.json"), "w", encoding="utf-8") as f:
+            json.dump({"fingerprint": il.fingerprint(self.repo), "cases": {"事例8-1": [4, 5, 5]}, "normal": {}}, f)
+        orig = il.subprocess.run
+
+        def no_run(cmd, *a, **k):
+            if cmd[0] != "git":
+                raise AssertionError("流し終えた事例を流し直した")
+            return orig(cmd, *a, **k)
+
+        il.subprocess.run = no_run
+        try:
+            res = ev.evaluate(self.repo, 0)
+        finally:
+            il.subprocess.run = orig
+        self.assertEqual(res["cases"], {"事例8-1": [4, 5, 5]})
+        self.assertEqual(res["cost_usd"], 0)
+        with open(os.path.join(self.repo, "CLAUDE.md"), "a", encoding="utf-8") as f:
+            f.write("- 変えた\n")                       # 版が変われば使い回さない
+        self.assertNotEqual(il.fingerprint(self.repo), json.load(open(os.path.join(out, "case_result.json")))["fingerprint"])
+
     def test_all_iterations_start_from_the_same_commit(self):
         self.run_loop({"outcomes": {"1": "same"}}, max_iter=1)
         with open(os.path.join(self.repo, "CLAUDE.md"), "a", encoding="utf-8") as f:

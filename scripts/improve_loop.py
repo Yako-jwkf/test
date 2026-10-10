@@ -99,11 +99,12 @@ class Store:
 def choose(candidates, history):
     """見直し候補の順に、まだ試していない (対象, 変更の種類) を選ぶ。
 
-    過去に採用候補・棄却・撤回・評価不能になった組は、理由なく繰り返さない。「中断」は案の結果ではないので、もう一度試す。
+    過去に採用候補・棄却・撤回になった組は、理由なく繰り返さない。「中断」と「評価不能」(利用上限・評価環境の故障)は
+    案の結果ではないので、もう一度試す(評価不能ではループが止まるので、繰り返すのは次に動かしたときだけ)。
     同じ原因で「足す」が2回棄却・撤回されたら、その原因には「足す」を出さない(足し続けずに、原因の仮説か介入の種類を変える)。
     戻り値: (候補, 種類, 選んだ理由, 参照した過去の反復) か None。
     """
-    tried = {(e["target"], e["kind"]) for e in history if e["decision"] != "中断"}
+    tried = {(e["target"], e["kind"]) for e in history if e["decision"] not in ("中断", "評価不能")}
     failed_adds = {}
     for e in history:
         if e["kind"] == "足す" and e["decision"] in ("棄却", "撤回"):
@@ -460,11 +461,25 @@ class ClaudeEvaluator:
     def evaluate(self, worktree, iteration):
         res = {"ok": True, "cases": {}, "normal": {}, "cost_usd": 0.0, "dirs": [], "costs": {}}
         judge = Judge(worktree, self.judge_model)
+        fp = fingerprint(worktree)
         for item in self.suite:
             case = str(item["case"])
             out = os.path.join(self.out_root, f"E{iteration:03d}-c{case}")
+            done = os.path.join(out, "case_result.json")
+            if os.path.exists(done):
+                # 前の実行で、同じ版のこの事例を流し終えていれば使い回す(利用上限で止まった後の再開で、費用を重ねない)
+                with open(done, encoding="utf-8") as f:
+                    prev = json.load(f)
+                if prev.get("fingerprint") == fp:
+                    res["cases"].update(prev["cases"])
+                    res["normal"].update(prev["normal"])
+                    res["dirs"].append(out)
+                    res["costs"][f"事例{case}"] = 0.0
+                    res.setdefault("reused", []).append(f"事例{case}")
+                    continue
             shutil.rmtree(out, ignore_errors=True)
             os.makedirs(out)
+            before = (dict(res["cases"]), dict(res["normal"]))
             with open(os.path.join(out, "plan.md"), "w", encoding="utf-8") as f:
                 f.write(f"測りたいもの: 自己改善ループの反復 {iteration} の評価(0 は変更前の基準値)\n"
                         f"使う条件: 事例{case} の全条件(mech、{self.runs} 回)\n"
@@ -499,6 +514,11 @@ class ClaudeEvaluator:
                                                  "chars": a["chars"]}
             res["costs"][f"事例{case}"] = round(spent, 4)
             res["cost_usd"] += spent
+            with open(done, "w", encoding="utf-8") as f:
+                json.dump({"fingerprint": fp, "cost_usd": round(spent, 4),
+                           "cases": {k: v for k, v in res["cases"].items() if k not in before[0]},
+                           "normal": {k: v for k, v in res["normal"].items() if k not in before[1]}},
+                          f, ensure_ascii=False, indent=1)
         res["cost_usd"] = round(res["cost_usd"], 4)
         return res
 
@@ -512,6 +532,12 @@ def changed_files(worktree):
 
 def touches_eval(files):
     return [f for f in files if f.startswith(EVAL_PATHS)]
+
+
+def fingerprint(worktree):
+    """評価する版の印。コミットと、作業用フォルダの差分(実装役の変更)から作る。"""
+    import hashlib
+    return hashlib.sha1((git(worktree, "rev-parse", "HEAD") + git(worktree, "diff")).encode()).hexdigest()
 
 
 def new_worktree(repo, commit, label):
