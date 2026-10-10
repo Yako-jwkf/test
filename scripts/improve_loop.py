@@ -104,7 +104,10 @@ def choose(candidates, history):
     同じ原因で「足す」が2回棄却・撤回されたら、その原因には「足す」を出さない(足し続けずに、原因の仮説か介入の種類を変える)。
     戻り値: (候補, 種類, 選んだ理由, 参照した過去の反復) か None。
     """
-    tried = {(e["target"], e["kind"]) for e in history if e["decision"] not in ("中断", "評価不能")}
+    tried = {}
+    for e in history:
+        if e["decision"] not in ("中断", "評価不能"):
+            tried[(e["target"], e["kind"])] = tried.get((e["target"], e["kind"]), 0) + 1
     failed_adds = {}
     for e in history:
         if e["kind"] == "足す" and e["decision"] in ("棄却", "撤回"):
@@ -114,7 +117,8 @@ def choose(candidates, history):
         for kind in KINDS:
             if kind not in cand.get("kinds", KINDS):
                 continue
-            if (cand["id"], kind) in tried:
+            # 同じ組は tries 回まで(既定1回)。2回目からは実装役が前の案との違いを書く(why_different)
+            if tried.get((cand["id"], kind), 0) >= cand.get("tries", 1):
                 continue
             if kind == "足す" and any(failed_adds.get(c, 0) >= 2 for c in cand.get("causes", [])):
                 continue
@@ -310,7 +314,7 @@ IMPLEMENT_SCHEMA = {
 KIND_HELP = {
     "外す": "対策の「場所」にある、その対策の文や処理だけを取り除く。取り除いたせいで宙に浮く参照(番号や「上の」など)があれば、それも最小限に直す。ほかの規則は変えない。",
     "まとめる": "対策の文を、同じ場所の近い規則と1つにまとめて短くする。働きは変えない。",
-    "直す": "対策の文を最小限に書き換えて、副作用の疑いを起こしにくくする。対策が狙う原因への働きは残す。新しい規則を足さない。",
+    "直す": "対策の文や処理を書き換えて、記録の「効果の結果」で届いていない基準か、「副作用」の疑いを直す。対策が狙う原因への働きは残す。対策と関係のない規則は足さない。",
     "足す": "原因に作用する規則か処理を1つだけ足す。",
 }
 
@@ -340,7 +344,7 @@ class ClaudeImplementer:
 
 ## 対策の記録(原因の表 {CAUSES_MD} から。この記録のファイルは変えない)
 {measure_entry(worktree, cand['id'])}
-
+{('## 目標' + chr(10) + cand['goal'] + chr(10)) if cand.get('goal') else ''}
 ## 同じ対象・同じ原因の過去の反復
 {chr(10).join(past) or 'なし'}
 過去に棄却・撤回された案と同じ案を出すなら、前と何が違うから今度は違う結果になると見るのかを why_different に書く。書けないなら別の案にする。

@@ -282,6 +282,14 @@ class RealPartsTest(LoopFixture):
         cand = [{"id": "M01", "causes": ["C01"], "kinds": ["外す"]}]
         self.assertEqual(il.choose(cand, h)[1], "外す")
 
+    def test_same_pair_can_be_tried_up_to_tries(self):
+        h = [{"episode_id": "E001", "target": "M06", "kind": "直す", "causes": ["C07"], "decision": "棄却"}]
+        self.assertIsNone(il.choose([{"id": "M06", "causes": ["C07"], "kinds": ["直す"]}], h))
+        pick = il.choose([{"id": "M06", "causes": ["C07"], "kinds": ["直す"], "tries": 2}], h)
+        self.assertEqual((pick[0]["id"], pick[1], pick[3]), ("M06", "直す", ["E001"]))   # 前の反復を見せる
+        h.append({**h[0], "episode_id": "E002"})
+        self.assertIsNone(il.choose([{"id": "M06", "causes": ["C07"], "kinds": ["直す"], "tries": 2}], h))
+
     def test_finished_cases_are_reused_after_a_stop(self):
         out_root = os.path.join(self.tmp, "runs")
         ev = il.ClaudeEvaluator({"suite": [{"case": "8", "judge": True}], "runs": 5}, out_root)
