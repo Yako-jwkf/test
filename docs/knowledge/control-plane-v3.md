@@ -30,7 +30,7 @@
 | 段 | 中身 | 理由 |
 |---|---|---|
 | 1. deny(AI は変えられない) | `judge.md`、`skills/retest/`(`run.py` を含む)、`hooks/guard.py`、`scripts/check_boundary.py`、`.github/workflows/boundary.yml` | 採点と境界そのもの |
-| 2. ask(人が承認すれば変えられる) | `git push`、GitHub への書き込み、`settings.json`、`CLAUDE.md`、スキル、サブエージェント、`.claude/hooks/` の残り(PR #5 の3つと、2026-10-06 の `session-start.sh`)、`.claude/reasoning/README.md`、`mistakes.md`、`mistake-cases.md`、`mistake-causes.md` と `scripts/mistake_check.py`(2026-10-06 に追加) | 振る舞いを変える部品と、直ったかの判定に使う表・台本。直す回数が多い |
+| 2. ask(人が承認すれば変えられる) | `git push`、GitHub への書き込み、`settings.json`、`CLAUDE.md`、スキル、サブエージェント、`.claude/hooks/` の残り(PR #5 の3つと、2026-10-06 の `session-start.sh`)、`.claude/reasoning/README.md`、`mistakes.md`、`mistake-cases.md`、`mistake-causes.md` と `scripts/mistake_check.py`(2026-10-06 に追加)、`scripts/improve_loop.py` と `scripts/eval_metrics.py`(2026-10-10 に追加。自己改善ループの採否と数え方を決める台本で、ループの実装役は評価の基準のファイルとして触れられない) | 振る舞いを変える部品と、直ったかの判定に使う表・台本。直す回数が多い |
 | 3. 追記のみ | `retest-log.md`(guard.py が判定) | 記録 |
 
 - `disableBypassPermissionsMode: "disable"`(全確認を省くモードを使えなくする)
