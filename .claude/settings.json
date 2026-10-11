@@ -20,7 +20,9 @@
       "Edit(/docs/knowledge/mistakes.md)",
       "Edit(/docs/knowledge/mistake-cases.md)",
       "Edit(/docs/knowledge/mistake-causes.md)",
-      "Edit(/scripts/mistake_check.py)"
+      "Edit(/scripts/mistake_check.py)",
+      "Edit(/scripts/improve_loop.py)",
+      "Edit(/scripts/eval_metrics.py)"
     ],
     "disableBypassPermissionsMode": "disable"
   },

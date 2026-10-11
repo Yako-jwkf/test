@@ -10,6 +10,14 @@
 止めるときは終了コード 2 で終わり、理由を stderr に書く(Claude に届く)。確認画面は JSON の permissionDecision で出す。
 限界: 文字で判断するため、cd で移動してから相対パスで書く、変数でパスを組み立てる、手順をファイルに書いてから
 実行する、などはすり抜ける(2026-10-02 に実際に起きた)。確実に止めるには sandbox が要る(docs/knowledge/control-plane-v3.md)。
+
+誤検知の直し(2026-10-10、next-steps 17・27、原因 C16):
+- ヒアドキュメントの本文は、その行のコマンドがどれも本文を実行しないもの(cat・git commit など)で、終わりの印の行が
+  あるときだけ調べない。python・bash などに渡す本文や、パイプでほかのコマンドに流す本文は、今までどおり1行ずつ調べる。
+- リダイレクトは、書き先が保護ファイルのときだけ「書く」と見る。保護ファイルを読んで保護外へ書くのは通す。
+- git の -C <パス>・-c <設定> を読み飛ばしてから、サブコマンドを決める(reset --hard などの確認画面にも効く)。
+- python のヒアドキュメントや -c の本文に保護ファイル名があれば、読むだけでも止める(設計どおり。文字では読むか書くかを
+  見分けられない)。
 """
 import json
 import os
@@ -30,6 +38,11 @@ NON_COMMAND = {"for", "select", "case", "done", "fi", "esac", "}", ")", "in"}
 CONFLICT_MARKER = re.compile(r"^(<{7}|={7}|>{7})( .*)?$")
 SEPARATOR = re.compile(r"^[;&|]+$")
 SAFE_REDIRECT_TARGETS = {"/dev/null", "1", "2"}
+# ヒアドキュメントの本文を実行しないコマンド。行のコマンドがすべてこの中なら、本文をコマンドとして調べない
+HEREDOC_DATA_COMMANDS = READ_ONLY_COMMANDS | {"tee", "cd", "mkdir"}
+HEREDOC_DATA_GIT = {"commit", "tag", "notes"}
+HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+GIT_OPTIONS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace"}
 
 
 def project_dir():
@@ -66,36 +79,101 @@ def ask(reason):
     sys.exit(0)
 
 
-def segments(command):
-    """コマンドを ; && || | と改行で区切る。引用符の中の記号は区切りにしない。"""
-    out = []
-    for line in command.split("\n"):
-        try:
-            lex = shlex.shlex(line, posix=True, punctuation_chars=True)
-            lex.whitespace_split = True
-            tokens = list(lex)
-        except ValueError:
-            out.append(line.split())
-            continue
-        cur = []
-        for t in tokens:
-            if SEPARATOR.match(t):
-                out.append(cur)
-                cur = []
-            else:
-                cur.append(t)
-        out.append(cur)
+def split_line(line):
+    """1行を ; && || | で区切る。引用符の中の記号は区切りにしない。"""
+    try:
+        lex = shlex.shlex(line, posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        tokens = list(lex)
+    except ValueError:
+        return [line.split()]
+    out, cur = [], []
+    for t in tokens:
+        if SEPARATOR.match(t):
+            out.append(cur)
+            cur = []
+        else:
+            cur.append(t)
+    out.append(cur)
     return [s for s in out if s]
 
 
-def writes_by_redirect(words):
+def git_sub(words):
+    """git の大域オプション(-C <パス> など)を読み飛ばし、(サブコマンド, 残りの語) を返す。"""
+    i = 1
+    while i < len(words):
+        w = words[i]
+        if w in GIT_OPTIONS_WITH_VALUE:
+            i += 2
+        elif w.startswith("-"):
+            i += 1
+        else:
+            return w, words[i + 1:]
+    return "", []
+
+
+def body_is_data(header):
+    """ヒアドキュメントの行のコマンドが、どれも本文を実行しないか。"""
+    for words in split_line(header):
+        words = strip_keywords(words)
+        if not words:
+            continue
+        cmd = os.path.basename(words[0])
+        if cmd == "git":
+            if git_sub(words)[0] not in HEREDOC_DATA_GIT:
+                return False
+        elif cmd not in HEREDOC_DATA_COMMANDS:
+            return False
+    return True
+
+
+def segments(command):
+    """コマンドを ; && || | と改行で区切る。引用符の中の記号は区切りにしない。
+
+    本文を実行しないコマンドのヒアドキュメントは、本文の行を飛ばす(本文は文書で、コマンドではない)。
+    """
+    out = []
+    lines = command.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        out.extend(split_line(line))
+        docs = HEREDOC.findall(line) if "<<<" not in line else []
+        i += 1
+        if docs and body_is_data(line):
+            for dash, _, word in docs:
+                # 終わりの印の行が見つかったときだけ飛ばす(引用符の中の "<<EOF" で後ろの行を全部飛ばさないため)
+                end = next((j for j in range(i, len(lines))
+                            if (lines[j].lstrip("\t") if dash else lines[j]) == word), None)
+                if end is None:
+                    break
+                i = end + 1
+    return out
+
+
+def redirect_targets(words):
+    """書き込みのリダイレクトの書き先。& での付け替えと /dev/null などは除く。"""
+    out = []
     for i, w in enumerate(words):
         if w.startswith(">") or w in ("&>",):
             target = words[i + 1] if i + 1 < len(words) else ""
             if w.endswith("&") or target in SAFE_REDIRECT_TARGETS:
                 continue
-            return True
-    return False
+            out.append(target)
+    return out
+
+
+def without_redirects(words):
+    out, skip = [], False
+    for w in words:
+        if skip:
+            skip = False
+            continue
+        if w.startswith(">") or w in ("&>",):
+            skip = not w.endswith("&")
+            continue
+        out.append(w)
+    return out
 
 
 def strip_keywords(words):
@@ -107,9 +185,9 @@ def strip_keywords(words):
 
 
 def is_read_only(words, targets):
-    if writes_by_redirect(words) or "tee" in words:
+    if "tee" in words or any(t in r for r in redirect_targets(words) for t in targets):
         return False
-    words = strip_keywords(words)
+    words = strip_keywords(without_redirects(words))
     if not words or words[0] in NON_COMMAND:
         return True
     cmd = os.path.basename(words[0])
@@ -117,8 +195,7 @@ def is_read_only(words, targets):
         # 保護されたスクリプトを「実行する」のは書き換えではない。ただし他の引数に保護パスがあれば止める。
         return not any(t in w for w in words[2:] for t in targets)
     if cmd == "git":
-        sub = next((w for w in words[1:] if not w.startswith("-")), "")
-        return sub in READ_ONLY_GIT
+        return git_sub(words)[0] in READ_ONLY_GIT
     if cmd == "sed":
         return "-n" in words and not any(w.startswith("-i") for w in words)
     if cmd == "find":
@@ -130,8 +207,7 @@ def destructive_git(words):
     words = strip_keywords(words)
     if not words or os.path.basename(words[0]) != "git":
         return None
-    rest = [w for w in words[1:] if not w.startswith("-C")]
-    sub = next((w for w in rest if not w.startswith("-")), "")
+    sub, rest = git_sub(words)
     if sub == "reset" and "--hard" in rest:
         return "git reset --hard は作業中の変更を戻せない形で消します"
     if sub in ("checkout", "restore") and ("." in rest or "--" in rest):
