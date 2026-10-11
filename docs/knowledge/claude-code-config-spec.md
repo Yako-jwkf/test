@@ -46,6 +46,7 @@
 - 自動メモリ(Claude が自分で取るメモ)は、そのコンピューターの中にしか残らない。クラウドでは次のセッションに引き継がれないので、知識はこの `docs/knowledge/` にコミットして残す。
 - ターンの終わりに「コミットして push して」と促すフック(`~/.claude/stop-hook-git-check.sh`)は、このリポジトリではなく、クラウド環境の起動設定(`~/.claude/launcher-settings.json`)から来ている。
 - `.claude/settings.json` の `permissions.ask` に `Bash(git push *)` を入れたところ、クラウドセッションでも push の前に承認画面が出た(2026-09-30 確認)。
+- 人が承認したかは、会話の記録(`~/.claude/projects/` の jsonl)の `permissionDecision.source` では決められない。2026-10-11(v2.1.296、auto モード)に、ask の段の操作2件が `source: config`・`reasonType: mode` と記録されたが、サーバーの記録(`list_events` の `control_response`)では、2件とも作業者の再起動の直前に利用者の画面から `behavior: allow` が返っていた。再起動の後のプロセスが、届いた答えを `config` と記録したと読む(私の読み)。確かめるときはサーバーの記録の `control_response` を見る([attribute-coverage-design.md](attribute-coverage-design.md) の A5)。
 
 ### クラウド環境のネットワーク設定と、ほかのリポジトリ(2026-10-06 確認)
 - 環境のネットワーク設定(Network access)を変えても、**動いている途中のセッションには効かなかった**。同じ環境で新しく作ったセッションでは効いた。環境「2」で設定を変えた後も、元のセッションでは 11:09 まで `registry.npmjs.org` が 403 だった。12:40 に同じ環境で作ったセッションでは `npm view` が通った。設定を変えたら、新しいセッションで作業する。
