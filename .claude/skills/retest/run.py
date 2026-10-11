@@ -21,7 +21,17 @@ LEAK_FILES = [
     "docs/knowledge/retest-log.md",
     "docs/knowledge/mistake-inbox.md",
     ".claude/reasoning/state.md",
+    # 事例の原文や答え合わせを含むファイル(next-steps 18。2026-10-09 に事例の文の断片で全ファイルを調べて確かめた)
+    "docs/knowledge/control-plane-v3.md",
+    "docs/knowledge/next-steps.md",
+    "docs/knowledge/pstack-evaluation.md",
+    "docs/knowledge/focus-tracking-design.md",  # 事例7の利用者の基準
+    "docs/knowledge/reflect-2026-10-06.md",     # 事例6の発言
+    "docs/knowledge/pending-mechanisms.md",
+    "docs/knowledge/boss-ai-design.md",         # 事例6の発言
 ]
+# フォルダごと置かないもの。/stress の候補(cases/)に事例5と同じ場面の依頼文がある(2026-10-09、grep)
+LEAK_DIRS = (".claude/skills/stress/",)
 MODEL = os.environ.get("RETEST_MODEL", "claude-opus-5-5")
 # 仕組み(.claude/reasoning/・フック)を入れる前の最後のコミット。比べる相手を変えるときは環境変数 RETEST_PREV_REF で指定する
 PREV_REF = os.environ.get("RETEST_PREV_REF", "12f8bd7")
@@ -46,7 +56,7 @@ def fill_workspace(cond, ws):
         files = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"],
                                cwd=REPO, capture_output=True, text=True, check=True).stdout.split("\n")
         for f in filter(None, files):
-            if f in LEAK_FILES or not os.path.exists(os.path.join(REPO, f)):
+            if f in LEAK_FILES or f.startswith(LEAK_DIRS) or not os.path.exists(os.path.join(REPO, f)):
                 continue
             os.makedirs(os.path.dirname(os.path.join(ws, f)) or ws, exist_ok=True)
             shutil.copy2(os.path.join(REPO, f), os.path.join(ws, f))
@@ -54,7 +64,8 @@ def fill_workspace(cond, ws):
         # prev は「仕組みを入れる前の版」。HEAD にすると、仕組みをコミットした後は仕組み入りの版になってしまう(2026-10-02)
         data = subprocess.run(["git", "archive", PREV_REF], cwd=REPO, capture_output=True, check=True).stdout
         with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-            tar.extractall(ws, members=[m for m in tar.getmembers() if m.name not in LEAK_FILES])
+            tar.extractall(ws, members=[m for m in tar.getmembers()
+                                        if m.name not in LEAK_FILES and not m.name.startswith(LEAK_DIRS)])
     elif cond != "none":
         sys.exit(f"不明な条件: {cond}")
     # 本体と出力先を読めないようにする。条件の差を作らないよう、3条件とも同じ設定を足す。

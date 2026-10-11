@@ -1,0 +1,21 @@
+{
+  "note": "2026-10-09 の最初の本物の反復。対象は見直し候補のうち、事例8-3(言われていない文脈を前提にする)と事例2-1 の副作用の疑いがある M01・M02。減らす変更(外す)を先に試し、次に直す。事例2(1回 約5ドル)は高いので入れず、C01 の既知は事例1で見る。",
+  "candidates": [
+    {"id": "M01", "kinds": ["外す"]},
+    {"id": "M02", "kinds": ["外す"]},
+    {"id": "M01", "kinds": ["直す"]},
+    {"id": "M02", "kinds": ["直す"]}
+  ],
+  "suite": [
+    {"case": "8", "judge": true},
+    {"case": "1", "judge": true},
+    {"case": "11"},
+    {"case": "12"}
+  ],
+  "runs": 5,
+  "implement_model": "claude-opus-5-5",
+  "judge_model": "sonnet",
+  "implement_cost": 2.0,
+  "evaluate_cost": 8.0,
+  "runs_dir": "/tmp/claude-0/-home-user-test/8b70c49a-ff82-551c-a0c5-6061338644a9/scratchpad/loop-runs"
+}
