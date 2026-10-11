@@ -1,0 +1,189 @@
+# 継続学習機構の要件 v0.2(/requirements スキル = prompts/requirement-agent-v1.4.md の手順。v0.1 からの続き)
+# 出どころ: 2026-10-11 の会話(session_01SHpFyeeeU9gC8tWCwLTYp3)で利用者が貼った依頼と、その後の発言。
+# source_span は利用者の文のそのままの引用。引用がない項目は agent_interpreted / assumption / unknown。
+# research_informed は、この会話で私(Claude)が調べた事実で、利用者は確認していない。
+# v0.2: 利用者が判断を任せた(利用者「もういいです、全権限渡します。考えて適当にしてください。」(2026-10-12))ので、決まっていなかった項目を delegated として記録し、
+# 要件定義の役(requirement_agent、2026-10-12 の会話 session_0184dhdYQ8dJGo19gdUBEQTL)が決めた。決めた値は user_stated ではない。
+requirement:
+  requirement_version: "v0.2"
+  status: "READY"
+
+  purpose:
+    - id: P1
+      value: "AIが明示的に与えられたルールを守るだけでなく、実際のユーザーのクエリや問題解決の経験から、新しい知識・判断基準・推論手法を発見し、検証し、再利用できる仕組みに発展させる"
+      state: user_stated
+      source_span: "このリポジトリを、AIが明示的に与えられたルールを守るだけでなく、実際のユーザーのクエリや問題解決の経験から、新しい知識・判断基準・推論手法を発見し、検証し、再利用できる仕組みに発展させたい。"
+    - id: P2
+      value: "2種類の学習材料(A. 生のユーザー対話、B. 開発・実験履歴)を統合し、既存のルールやスキルに明示されていない知識を発掘する"
+      state: user_stated
+      source_span: "次の2種類の学習材料を統合する。… これらから、既存のルールやスキルに明示されていない知識を発掘する。"
+
+  target:
+    - id: T1
+      value: "このリポジトリ(Yako-jwkf/test)"
+      state: user_stated
+      source_span: "このリポジトリを、"
+    - id: T2
+      value: "「実際のユーザー」は、このリポジトリの持ち主の利用者1人"
+      state: delegated
+      note: "決めた理由: CLAUDE.md の「ユーザーについて」は、この利用者1人のことだけを書いている。ほかの人の会話は手元にない"
+      source_span: "実際のユーザーのクエリや問題解決の経験から"
+
+  input:
+    - id: I-A
+      value: "A. 生のユーザー対話: ユーザーのクエリ / それに対するAIの回答 / ユーザーによる訂正・反論・追加指示 / 回答への明示的な評価と、その後の修正 / 一連のやり取りから判明した成功・失敗条件"
+      state: user_stated
+      source_span: "A. 生のユーザー対話 * ユーザーのクエリ * それに対するAIの回答 * ユーザーによる訂正・反論・追加指示 * 回答への明示的な評価と、その後の修正 * 一連のやり取りから判明した成功・失敗条件"
+    - id: I-B
+      value: "B. 開発・実験履歴: Gitコミット、差分、PR / テスト結果、再発事例、対策の撤回 / スキル・エージェント・フックの変更 / 過去の改善実験と、その副作用"
+      state: user_stated
+      source_span: "B. 開発・実験履歴 * Gitコミット、差分、PR * テスト結果、再発事例、対策の撤回 * スキル・エージェント・フックの変更 * 過去の改善実験と、その副作用"
+    - id: I-scope
+      value: "A は、このリポジトリ(test)の作業をした Claude Code の会話のうち、私生活やほかのリポジトリの話ではないもの(過去の会話とこれからの会話)。B は、リポジトリにある git の履歴・PR・ミス置き場・原因の表・再テストの記録"
+      state: delegated
+      source_span: none
+      note: "決めた理由: リポジトリは公開なので、A の原文はリポジトリに置かず、作業中の一時フォルダにだけ置いて使い終わったら消す(C3 と同じ扱い)。最初の実験は B を主に使う。A の読み出しは4会話で136回かかり、自動モードの判定にも止められた(continual-learning-design.md)"
+
+  tasks:
+    - {id: R1, value: "生クエリを収集する経路と、収集できる範囲を特定する。", state: user_stated, source_span: "1. 生クエリを収集する経路と、収集できる範囲を特定する。"}
+    - {id: R2, value: "クエリ単体から抽出できる知識と、複数の対話・開発履歴を比較して発見する知識を区別する。", state: user_stated, source_span: "2. クエリ単体から抽出できる知識と、複数の対話・開発履歴を比較して発見する知識を区別する。"}
+    - {id: R3, value: "ユーザー固有の選好、一般化可能な知識、未検証の仮説を区別する。", state: user_stated, source_span: "3. ユーザー固有の選好、一般化可能な知識、未検証の仮説を区別する。"}
+    - {id: R4, value: "明示的なミスの指摘がない事例からも、成功した解法や潜在的な判断基準を発見する。", state: user_stated, source_span: "4. 明示的なミスの指摘がない事例からも、成功した解法や潜在的な判断基準を発見する。"}
+    - {id: R5, value: "既存のルールに合致する事例だけでなく、既存のルールでは説明できない事例も探索する。", state: user_stated, source_span: "5. 既存のルールに合致する事例だけでなく、既存のルールでは説明できない事例も探索する。"}
+    - {id: R6, value: "知識候補について、根拠・適用条件・反例・確信度・評価結果を保持する。", state: user_stated, source_span: "6. 知識候補について、根拠・適用条件・反例・確信度・評価結果を保持する。"}
+    - {id: R7, value: "発掘に使った事例をそのまま評価に使わず、未使用の事例で転用可能性を検証する。", state: user_stated, source_span: "7. 発掘に使った事例をそのまま評価に使わず、未使用の事例で転用可能性を検証する。"}
+    - {id: R8, value: "効果のない知識や有害な知識を保留・修正・撤回できるようにする。", state: user_stated, source_span: "8. 効果のない知識や有害な知識を保留・修正・撤回できるようにする。"}
+    - {id: R9, value: "検証済みの知識を、新しいクエリへの回答や新しい開発タスクに再利用する。", state: user_stated, source_span: "9. 検証済みの知識を、新しいクエリへの回答や新しい開発タスクに再利用する。"}
+    - {id: R10, value: "既存の /learn、/reflect、/retest、/add-knowledge、/stress と評価基盤を調査し、必要な機能だけを追加する。", state: user_stated, source_span: "10. 既存の /learn、/reflect、/retest、/add-knowledge、/stress と評価基盤を調査し、必要な機能だけを追加する。"}
+    - {id: R11, value: "生クエリには機密情報が含まれ得るため、保存範囲、アクセス制御、保持期間、削除手段を設計する。", state: user_stated, source_span: "11. 生クエリには機密情報が含まれ得るため、保存範囲、アクセス制御、保持期間、削除手段を設計する。"}
+    - {id: R12, value: "知識候補の生成と正式採用を分離し、採点基準や評価機構を自己正当化のために変更できないようにする。", state: user_stated, source_span: "12. 知識候補の生成と正式採用を分離し、採点基準や評価機構を自己正当化のために変更できないようにする。"}
+
+  constraints:
+    - id: C1
+      value: "最初は設計と現状調査だけを行い、実装を開始しない"
+      state: user_stated
+      source_span: "最初は設計と現状調査だけを行い、実装を開始しない。"
+    - id: C2
+      value: "リポジトリの実ファイルと実行結果を根拠にする"
+      state: user_stated
+      source_span: "リポジトリの実ファイルと実行結果を根拠に、"
+    - id: C3
+      value: "確かめる事例の原文は、利用者が1件ずつ同意したものだけを test に置く"
+      state: user_confirmed
+      source_span: "進めて、aでok"
+      note: "(a) は私が出した案「今のやり方を続け、あなたが1件ずつ同意した原文だけ test に置く」。"
+    - id: C4
+      value: "常に読み込む指示(CLAUDE.md と推論の手順)を増やして成績を上げない。知識の台帳は、適用条件に当たる場面でだけ読む形にする。失敗したら、注意書きを足す前に仕組みの作りを見直す"
+      state: delegated
+      source_span: "もういいです、全権限渡します。考えて適当にしてください。"
+      note: "委任の範囲で、2026-10-12 に貼られた別の AI の文「個別の行動を逐一指定するのではなく、達成すべき目的と制約だけを与え、実行方法はAIに委ねる。失敗した場合は、AIへの注意書きを増やす前に、システム構造そのものを見直す。」「本当に見るべきなのは、指示を増やさずに未知のタスクへの成功率が上がったか。」を採った。この作業場でも、ルールを足すたびに別の副作用が出た記録がある(2026-10-10 の M06: 答えが1.8倍、停止2→13回)"
+
+  deliverable:
+    - id: D1
+      value: "データ収集から知識の再利用までの全体設計、既存ファイルの変更箇所、評価方法、セキュリティ上の制約"
+      state: user_stated
+      source_span: "データ収集から知識の再利用までの全体設計、既存ファイルの変更箇所、評価方法、セキュリティ上の制約を示す。"
+    - id: D2
+      value: "最小限の実装で学習効果を検証できる実験を1つ選び、その具体的な手順と合否基準を提示する"
+      state: user_stated
+      source_span: "最後に、最小限の実装で学習効果を検証できる実験を1つ選び、その具体的な手順と合否基準を提示する。"
+    - id: D3
+      value: "手元に残すのは3つ: ①知識の台帳(1ファイル。各知識に種別・根拠・適用条件・反例・確信度・評価結果・状態) ②掘る・確かめる・採るの手順(スキル) ③決まりで判定する部分の台本(今ある improve_loop.py・eval_metrics.py・mistake_check.py を使い、足りない分だけ足す)。汎用のオーケストレーター(orchestrator.py)は今は作らない"
+      state: delegated
+      note: "決めた理由: 差分表(docs/knowledge/orchestration-gap.md)で、反復・予算・停止・再開・履歴・評価の基準の保護は improve_loop.py がすでに持ち、欠けているのは「掘る」と「台帳」と「未使用の事例で確かめる」だと分かった"
+      source_span: "再利用できる仕組みに発展させたい。"
+
+  success_criteria:
+    - id: S1
+      value: "掘るのに使っていない後の事例で、掘った知識を足した版が足さない版より良くなること。2段で見る。(a) 照合: 後のミスのうち、今のルールでは防げず、掘った知識なら防げたと judge 2体が一致して判定したものが3件以上。(b) 行動: (a) で当たった事例を run.py で流し、知識あり版が知識なし版より、どれかの条件で5回中2回以上多く合格し、どの条件も2回以上は下がらず、長さ・道具の回数の中央値が1.3倍以内。どちらの段も、常に読み込む指示(CLAUDE.md・推論の手順)の行数は変えない(C4)"
+      state: delegated
+      note: "決めた理由: (b) の差2・5回・1.3倍は、測る前に決めた既存の決まり(effect-evaluation.md、eval_metrics.py)。(a) を先に置くのは、2026-10-11 の試験で、掘った候補が確かめる事例の場面に当たらず、流す前に止めたため"
+      source_span: "最小限の実装で学習効果を検証できる実験"
+    - id: S2
+      value: "採った知識のうち、本番で同じ原因の再発が減ったもの(scripts/mistake_check.py の原因ごとの再発)が1つ以上出ること。それまでは「効果は未評価」と書く"
+      state: delegated
+      source_span: none
+
+  scope:
+    included:
+      - {value: "A. 生のユーザー対話、B. 開発・実験履歴の両方", state: user_stated, source_span: "次の2種類の学習材料を統合する。"}
+      - {value: "新しい知識・判断基準・推論手法", state: user_stated, source_span: "新しい知識・判断基準・推論手法を発見し、"}
+    excluded: []
+
+  assumptions: []
+
+  unknowns:
+    - "U-retention: 会話の保持期間(30日か5年か)。A の過去の会話がいつまで読めるかに関わる(factual)"
+    - "U-auto: 自動モードで、ほかの会話の読み出しと run.py をどの条件なら流せるか(factual)"
+
+  user_defined_terms:
+    - {term: "生クエリ", state: user_stated, note: "意味は依頼の A の一覧に近いが、A の一覧全体を指すのか、クエリだけを指すのかは未確認"}
+    - {term: "学習材料", state: user_stated}
+    - {term: "知識候補", state: user_stated}
+    - {term: "転用可能性", state: user_stated}
+    - {term: "正式採用", state: user_stated}
+    - {term: "学習効果", state: user_stated, note: "定義は delegated で決めた(S1)"}
+    - {term: "推論手法", state: user_stated, note: "delegated で決めた: 調べ方・考え方の手順(例: 答える前に何をどの順で確かめるか)。知識(事実)・判断基準(良し悪しの物差し)と分け、台帳の種別に入れる"}
+
+  conflicts: []
+
+  dependencies:
+    - {from: R7, to: S1}
+    - {from: R9, to: R7}
+    - {from: D2, to: S1}
+    - {from: R1, to: I-scope}
+    - {from: R11, to: I-scope}
+
+  delegation:
+    - {item_id: T2, delegated_to: requirement_agent, decision_bounds: "決まっていなかった項目すべて", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: I-scope, delegated_to: requirement_agent, decision_bounds: "同上。ただし C3(原文は1件ずつ同意したものだけ test に置く)は利用者の確認済みなので変えない", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: D3, delegated_to: requirement_agent, decision_bounds: "同上", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: S1, delegated_to: requirement_agent, decision_bounds: "同上", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: S2, delegated_to: requirement_agent, decision_bounds: "同上", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: U-term, delegated_to: requirement_agent, decision_bounds: "同上", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+    - {item_id: U-order, delegated_to: requirement_agent, decision_bounds: "同上。決めた順: R1(集める範囲)→R6(台帳)→R7(未使用の事例で確かめる)を先に。R9(再利用)は確かめた後。R11・R12 はずっと守る", source_span: "もういいです、全権限渡します。考えて適当にしてください。"}
+
+  uncertainty:
+    specification:
+      - "S1・D3・I-scope・T2 は delegated で決めた。利用者が後で違うと言えば、その答えで更新する"
+    model:
+      - "過去の会話から掘った知識が、別の場面に転用できるか(2026-10-11 の試験では、掘った候補10個が確かめる事例の場面に当たらなかった)"
+    factual:
+      - "会話の保持期間がこの利用者の設定で30日か5年か"
+      - "自動モードで、ほかの会話の読み出しと run.py をどの条件なら流せるか"
+
+  research_questions:
+    - "この利用者の設定での、会話の保持期間"
+    - "自動モードの判定に止められずに、ほかの会話を読む・run.py を流す方法があるか(許可のモードの切り替え以外)"
+
+  context:
+    - {value: "Yako-jwkf/test は公開(public)", state: research_informed, source_span: none}
+    - {value: "過去の会話は list_sessions・list_events で読める(50件、2026-09-30〜10-11)。4件の読み出しに136回かかった", state: research_informed, source_span: none}
+    - {value: "サーバーの記録の result の欄は、停止フックが動いたターンでは画面の本文と違う", state: research_informed, source_span: none}
+    - {value: "自動モードの判定が、ほかの会話の中身を扱う操作と、確認を省いて claude -p を動かす操作を止めた", state: research_informed, source_span: none}
+
+  input_coverage:
+    not_reflected:
+      - {span: "これについてどう考えますか？", reason: "要件ではなく、依頼への意見を求める問い"}
+      - {span: "これからやること設計", reason: "作業の依頼。要件の中身はない"}
+      - {span: "あなたはでは何を作らなければならないのですか", reason: "問い。要件の中身はない"}
+      - {span: "頭悪すぎるので要件定義から始めてください", reason: "作業の進め方の指示(この下書きを作るきっかけ)"}
+      - {span: "おk、進めて / はい、続けてください", reason: "どの案への了承かが一意に読めず、要件には入れない"}
+      - {span: "(2026-10-12 の会話で貼られた別の AI の文)役割分担の表(収集・正規化・照合・分割・採点・採用を Python、発掘を AI)", reason: "利用者は「これについてはどう考えますか？」と聞いただけで、採ると言っていない。設計の参考にだけ使う。採点は意味の判定なので AI(judge)のまま(この作業場の既存の作り)"}
+      - {span: "(同じく貼られた文)Planner・Dispatcher・Executor・Verifier・Learner・Orchestrator と orchestrator.py ほか8つのモジュール、初版の完成条件8つ", reason: "要件ではなく設計の案。委任の範囲で差分表を作り、D3 で「今は作らない」と決めた(docs/knowledge/orchestration-gap.md)"}
+      - {span: "(同じく貼られた文)最初にClaude Codeへ指示する仕事は、既存の improve_loop.py・eval_metrics.py・スキル・エージェント・フックを調査し、この責務分担に対する差分表を作らせることだゾ。", reason: "D1 の「既存ファイルの変更箇所」の現状調査に含めて行った"}
+      - {span: "なんの話をしているのですか？本当に頭が悪すぎてうんざりします。あなたはまず頭を良くする方法を検索して学ぶべきです。本当にひどい。", reason: "要件ではなく、返答の分かりにくさと調べずに言い切ったことへの指摘(ミス置き場の 2026-10-12 の行)"}
+      - {span: "引き継ぎがあると思うので受け取ってください / なぜ知らない？", reason: "作業の指示と問い。要件の中身はない"}
+
+  sufficiency:
+    status: "READY"
+    missing_material_requirements: []
+    rationale: "v0.1 で欠けていた S1・D3・I-scope は、利用者の委任で決めた(delegation に範囲を記録)。残る不明は factual(保持期間・自動モード)で、最初の実験は B を主に使うので結果を左右しない。C1(最初は設計と現状調査だけ、実装しない)は変わらない"
+
+  confirmation:
+    - {item: C3, state: user_confirmed, source_span: "進めて、aでok"}
+    - {item: "T2・I-scope・D3・S1・S2", state: delegated, source_span: "もういいです、全権限渡します。考えて適当にしてください。", note: "確認は取っていない。違えば、その答えで更新する"}
+
+  change_history:
+    - {version: "v0.1", source: requirement_agent, change: "2026-10-11 の依頼の原文から抽出した下書き"}
+    - {version: "v0.2", source: "user(委任)+ requirement_agent", change: "2026-10-12、利用者の全面委任で T2・I-scope・D3・S1・S2・推論手法の意味・順を決め、READY にした。2026-10-12 の会話の入力を input_coverage に足した。C4(常に読む指示を増やさない)を委任の範囲で足した"}
