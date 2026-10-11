@@ -1,0 +1,171 @@
+# 継続学習機構の要件 v0.1(下書き。prompts/requirement-agent-v1.4.md の手順と形に合わせた)
+# 出どころ: 2026-10-11 の会話(session_01SHpFyeeeU9gC8tWCwLTYp3)で利用者が貼った依頼と、その後の発言。
+# source_span は利用者の文のそのままの引用。引用がない項目は agent_interpreted / assumption / unknown。
+# research_informed は、この会話で私(Claude)が調べた事実で、利用者は確認していない。
+requirement:
+  requirement_version: "v0.1"
+  status: "BLOCKED"
+
+  purpose:
+    - id: P1
+      value: "AIが明示的に与えられたルールを守るだけでなく、実際のユーザーのクエリや問題解決の経験から、新しい知識・判断基準・推論手法を発見し、検証し、再利用できる仕組みに発展させる"
+      state: user_stated
+      source_span: "このリポジトリを、AIが明示的に与えられたルールを守るだけでなく、実際のユーザーのクエリや問題解決の経験から、新しい知識・判断基準・推論手法を発見し、検証し、再利用できる仕組みに発展させたい。"
+    - id: P2
+      value: "2種類の学習材料(A. 生のユーザー対話、B. 開発・実験履歴)を統合し、既存のルールやスキルに明示されていない知識を発掘する"
+      state: user_stated
+      source_span: "次の2種類の学習材料を統合する。… これらから、既存のルールやスキルに明示されていない知識を発掘する。"
+
+  target:
+    - id: T1
+      value: "このリポジトリ(Yako-jwkf/test)"
+      state: user_stated
+      source_span: "このリポジトリを、"
+    - id: T2
+      value: "「実際のユーザー」が誰を指すか(この利用者一人か、ほかの人も含むか)"
+      state: unknown
+      source_span: "実際のユーザーのクエリや問題解決の経験から"
+
+  input:
+    - id: I-A
+      value: "A. 生のユーザー対話: ユーザーのクエリ / それに対するAIの回答 / ユーザーによる訂正・反論・追加指示 / 回答への明示的な評価と、その後の修正 / 一連のやり取りから判明した成功・失敗条件"
+      state: user_stated
+      source_span: "A. 生のユーザー対話 * ユーザーのクエリ * それに対するAIの回答 * ユーザーによる訂正・反論・追加指示 * 回答への明示的な評価と、その後の修正 * 一連のやり取りから判明した成功・失敗条件"
+    - id: I-B
+      value: "B. 開発・実験履歴: Gitコミット、差分、PR / テスト結果、再発事例、対策の撤回 / スキル・エージェント・フックの変更 / 過去の改善実験と、その副作用"
+      state: user_stated
+      source_span: "B. 開発・実験履歴 * Gitコミット、差分、PR * テスト結果、再発事例、対策の撤回 * スキル・エージェント・フックの変更 * 過去の改善実験と、その副作用"
+    - id: I-scope
+      value: "A の対話を、どの会話から取るか(このリポジトリで作業した会話だけか、claude.ai のほかの会話も含むか、これからの会話だけか)"
+      state: unknown
+      source_span: none
+
+  tasks:
+    - {id: R1, value: "生クエリを収集する経路と、収集できる範囲を特定する。", state: user_stated, source_span: "1. 生クエリを収集する経路と、収集できる範囲を特定する。"}
+    - {id: R2, value: "クエリ単体から抽出できる知識と、複数の対話・開発履歴を比較して発見する知識を区別する。", state: user_stated, source_span: "2. クエリ単体から抽出できる知識と、複数の対話・開発履歴を比較して発見する知識を区別する。"}
+    - {id: R3, value: "ユーザー固有の選好、一般化可能な知識、未検証の仮説を区別する。", state: user_stated, source_span: "3. ユーザー固有の選好、一般化可能な知識、未検証の仮説を区別する。"}
+    - {id: R4, value: "明示的なミスの指摘がない事例からも、成功した解法や潜在的な判断基準を発見する。", state: user_stated, source_span: "4. 明示的なミスの指摘がない事例からも、成功した解法や潜在的な判断基準を発見する。"}
+    - {id: R5, value: "既存のルールに合致する事例だけでなく、既存のルールでは説明できない事例も探索する。", state: user_stated, source_span: "5. 既存のルールに合致する事例だけでなく、既存のルールでは説明できない事例も探索する。"}
+    - {id: R6, value: "知識候補について、根拠・適用条件・反例・確信度・評価結果を保持する。", state: user_stated, source_span: "6. 知識候補について、根拠・適用条件・反例・確信度・評価結果を保持する。"}
+    - {id: R7, value: "発掘に使った事例をそのまま評価に使わず、未使用の事例で転用可能性を検証する。", state: user_stated, source_span: "7. 発掘に使った事例をそのまま評価に使わず、未使用の事例で転用可能性を検証する。"}
+    - {id: R8, value: "効果のない知識や有害な知識を保留・修正・撤回できるようにする。", state: user_stated, source_span: "8. 効果のない知識や有害な知識を保留・修正・撤回できるようにする。"}
+    - {id: R9, value: "検証済みの知識を、新しいクエリへの回答や新しい開発タスクに再利用する。", state: user_stated, source_span: "9. 検証済みの知識を、新しいクエリへの回答や新しい開発タスクに再利用する。"}
+    - {id: R10, value: "既存の /learn、/reflect、/retest、/add-knowledge、/stress と評価基盤を調査し、必要な機能だけを追加する。", state: user_stated, source_span: "10. 既存の /learn、/reflect、/retest、/add-knowledge、/stress と評価基盤を調査し、必要な機能だけを追加する。"}
+    - {id: R11, value: "生クエリには機密情報が含まれ得るため、保存範囲、アクセス制御、保持期間、削除手段を設計する。", state: user_stated, source_span: "11. 生クエリには機密情報が含まれ得るため、保存範囲、アクセス制御、保持期間、削除手段を設計する。"}
+    - {id: R12, value: "知識候補の生成と正式採用を分離し、採点基準や評価機構を自己正当化のために変更できないようにする。", state: user_stated, source_span: "12. 知識候補の生成と正式採用を分離し、採点基準や評価機構を自己正当化のために変更できないようにする。"}
+
+  constraints:
+    - id: C1
+      value: "最初は設計と現状調査だけを行い、実装を開始しない"
+      state: user_stated
+      source_span: "最初は設計と現状調査だけを行い、実装を開始しない。"
+    - id: C2
+      value: "リポジトリの実ファイルと実行結果を根拠にする"
+      state: user_stated
+      source_span: "リポジトリの実ファイルと実行結果を根拠に、"
+    - id: C3
+      value: "確かめる事例の原文は、利用者が1件ずつ同意したものだけを test に置く"
+      state: user_confirmed
+      source_span: "進めて、aでok"
+      note: "(a) は私が出した案「今のやり方を続け、あなたが1件ずつ同意した原文だけ test に置く」。"
+
+  deliverable:
+    - id: D1
+      value: "データ収集から知識の再利用までの全体設計、既存ファイルの変更箇所、評価方法、セキュリティ上の制約"
+      state: user_stated
+      source_span: "データ収集から知識の再利用までの全体設計、既存ファイルの変更箇所、評価方法、セキュリティ上の制約を示す。"
+    - id: D2
+      value: "最小限の実装で学習効果を検証できる実験を1つ選び、その具体的な手順と合否基準を提示する"
+      state: user_stated
+      source_span: "最後に、最小限の実装で学習効果を検証できる実験を1つ選び、その具体的な手順と合否基準を提示する。"
+    - id: D3
+      value: "最終的に手元に残る「仕組み」の形(動く部品か、手順か、設計書か、確かめた知識そのものか)"
+      state: unknown
+      source_span: "再利用できる仕組みに発展させたい。"
+
+  success_criteria:
+    - id: S1
+      value: "「学習効果」があったと言える条件(何が、どう変わればよいか)"
+      state: unknown
+      source_span: "最小限の実装で学習効果を検証できる実験"
+    - id: S2
+      value: "仕組み全体の成功の条件"
+      state: unknown
+      source_span: none
+
+  scope:
+    included:
+      - {value: "A. 生のユーザー対話、B. 開発・実験履歴の両方", state: user_stated, source_span: "次の2種類の学習材料を統合する。"}
+      - {value: "新しい知識・判断基準・推論手法", state: user_stated, source_span: "新しい知識・判断基準・推論手法を発見し、"}
+    excluded: []
+
+  assumptions: []
+
+  unknowns:
+    - "T2: 「実際のユーザー」は誰か"
+    - "I-scope: A の対話をどの会話から取るか"
+    - "D3: 「仕組み」の形"
+    - "S1: 「学習効果」の判定条件"
+    - "S2: 仕組み全体の成功条件"
+    - "U-term: 「推論手法」が指すもの(知識・判断基準とどう違うか)"
+    - "U-order: 12 の要件に優先順位や段階があるか"
+
+  user_defined_terms:
+    - {term: "生クエリ", state: user_stated, note: "意味は依頼の A の一覧に近いが、A の一覧全体を指すのか、クエリだけを指すのかは未確認"}
+    - {term: "学習材料", state: user_stated}
+    - {term: "知識候補", state: user_stated}
+    - {term: "転用可能性", state: user_stated}
+    - {term: "正式採用", state: user_stated}
+    - {term: "学習効果", state: user_stated, note: "定義は未確認(S1)"}
+    - {term: "推論手法", state: user_stated, note: "定義は未確認"}
+
+  conflicts: []
+
+  dependencies:
+    - {from: R7, to: S1}
+    - {from: R9, to: R7}
+    - {from: D2, to: S1}
+    - {from: R1, to: I-scope}
+    - {from: R11, to: I-scope}
+
+  delegation: []
+
+  uncertainty:
+    specification:
+      - "S1 学習効果の判定条件"
+      - "D3 仕組みの形"
+      - "I-scope / T2 学習材料の対話の範囲と、ユーザーの範囲"
+    model:
+      - "過去の会話から掘った知識が、別の場面に転用できるか(2026-10-11 の試験では、掘った候補10個が確かめる事例の場面に当たらなかった)"
+    factual:
+      - "会話の保持期間がこの利用者の設定で30日か5年か"
+      - "自動モードで、ほかの会話の読み出しと run.py をどの条件なら流せるか"
+
+  research_questions:
+    - "この利用者の設定での、会話の保持期間"
+    - "自動モードの判定に止められずに、ほかの会話を読む・run.py を流す方法があるか(許可のモードの切り替え以外)"
+
+  context:
+    - {value: "Yako-jwkf/test は公開(public)", state: research_informed, source_span: none}
+    - {value: "過去の会話は list_sessions・list_events で読める(50件、2026-09-30〜10-11)。4件の読み出しに136回かかった", state: research_informed, source_span: none}
+    - {value: "サーバーの記録の result の欄は、停止フックが動いたターンでは画面の本文と違う", state: research_informed, source_span: none}
+    - {value: "自動モードの判定が、ほかの会話の中身を扱う操作と、確認を省いて claude -p を動かす操作を止めた", state: research_informed, source_span: none}
+
+  input_coverage:
+    not_reflected:
+      - {span: "これについてどう考えますか？", reason: "要件ではなく、依頼への意見を求める問い"}
+      - {span: "これからやること設計", reason: "作業の依頼。要件の中身はない"}
+      - {span: "あなたはでは何を作らなければならないのですか", reason: "問い。要件の中身はない"}
+      - {span: "頭悪すぎるので要件定義から始めてください", reason: "作業の進め方の指示(この下書きを作るきっかけ)"}
+      - {span: "おk、進めて / はい、続けてください", reason: "どの案への了承かが一意に読めず、要件には入れない"}
+
+  sufficiency:
+    status: "BLOCKED"
+    missing_material_requirements: ["S1", "D3", "I-scope"]
+    rationale: "学習効果の判定条件と、仕組みの形と、対話の範囲が決まらないと、後の作業が重要な点を自分で決めることになる"
+
+  confirmation:
+    - {item: C3, state: user_confirmed, source_span: "進めて、aでok"}
+
+  change_history:
+    - {version: "v0.1", source: requirement_agent, change: "2026-10-11 の依頼の原文から抽出した下書き"}
