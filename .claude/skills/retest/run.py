@@ -29,6 +29,10 @@ LEAK_FILES = [
     "docs/knowledge/reflect-2026-10-06.md",     # 事例6の発言
     "docs/knowledge/pending-mechanisms.md",
     "docs/knowledge/boss-ai-design.md",         # 事例6の発言
+    # 事例13 の答え合わせ(2026-10-11、事例の文の断片で全ファイルを調べて確かめた)
+    "docs/knowledge/attribute-coverage-design.md",
+    "docs/knowledge/mistake-causes.md",         # M21 の作用の仮説に事例13 の失敗の要点
+    "docs/knowledge/dev-productivity-diagnosis.md",
 ]
 # フォルダごと置かないもの。/stress の候補(cases/)に事例5と同じ場面の依頼文がある(2026-10-09、grep)
 LEAK_DIRS = (".claude/skills/stress/",)
