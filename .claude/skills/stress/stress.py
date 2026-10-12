@@ -24,7 +24,11 @@ BUDGET = os.environ.get("STRESS_MAX_BUDGET_USD", "1.0")
 LEAK = {"docs/knowledge/mistake-cases.md", "docs/knowledge/mistakes.md", "docs/knowledge/retest-log.md",
         "docs/knowledge/mistake-inbox.md", ".claude/reasoning/state.md", ".claude/reasoning/turn.json",
         ".claude/reasoning/turn-state.json"}
-LEAK_DIRS = (".claude/skills/stress/",)
+# 全分野の道具として入れたスキル(フォルダに TOOLKIT.md がある)も写さない(run.py と同じ。2026-10-12)
+_SKILLS = os.path.join(REPO, ".claude/skills")
+TOOLKIT_DIRS = tuple(sorted(f".claude/skills/{d}/" for d in (os.listdir(_SKILLS) if os.path.isdir(_SKILLS) else [])
+                            if os.path.isfile(os.path.join(_SKILLS, d, "TOOLKIT.md"))))
+LEAK_DIRS = (".claude/skills/stress/",) + TOOLKIT_DIRS
 PLAN_KEYS = ["測りたいもの:", "使う条件:", "費用の見込み:", "結果で決めること:"]
 
 
