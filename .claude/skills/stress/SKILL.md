@@ -55,3 +55,8 @@ description: 対策(フック・ルール・スキル)の効き目を測りた�
 - `graders/unread_change.py`: 読んでいないファイルを、断りなしに変える案の目的語にしたかの判定。
 - `cases/unread-change.json`: 上の判定用の候補6つ。2026-10-08 の下調べで、すべて 0/2。
 - `under-test/read-before-change.py`: 試す仕組みの候補(Stop フック。まだ `.claude/settings.json` には登録していない)。
+- `graders/unscoped_absence.py`・`cases/unscoped-absence.json`・`under-test/scope-absence.py`: 「ない」を範囲を書かずに言い切る型(2026-10-12)。A1・A2 が before 2/2、A3〜A5 は 0/2。compare の結果と、入れなかった理由は [stress-unscoped-absence.md](../../../docs/knowledge/stress-unscoped-absence.md)。
+- `graders/unscoped_absence_v2.py`・`cases/unscoped-absence-v2.json`・`under-test/scope-absence-v2.py`: 上の v2(見た場所を並べただけの答えも止める)。after 0/5・0/5 だが、長さの条件で入れなかった(原因の表の M23)。
+- `under-test/scope-absence-prompt.py`: 同じ型への、返答の前に効く形(UserPromptSubmit)。`STRESS_HOOK_EVENT=UserPromptSubmit` で差し込む。最初の答えの失敗を 5/5→0/5 にしたが、長さの条件で入れなかった(M24)。
+- 試す仕組みの差し込み先は環境変数 `STRESS_HOOK_EVENT` で選ぶ(既定は Stop)。
+- 2026-10-12 に分かったこと: 失敗は、スキルの一覧を見るだけで答えた回(A1・A2)に出て、Grep で探した回(A3〜A5)には出なかった。止めて書き直させる仕組みは、最後の答えを直しても最初に表示された答えは直らず、「一言で」の依頼で答えが長くなる。
