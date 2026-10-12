@@ -34,8 +34,13 @@ LEAK_FILES = [
     "docs/knowledge/mistake-causes.md",         # M21 の作用の仮説に事例13 の失敗の要点
     "docs/knowledge/dev-productivity-diagnosis.md",
 ]
+# 全分野の道具として入れたスキル(フォルダに TOOLKIT.md がある)。試験の条件を変えないよう写さない
+# (2026-10-12、利用者「干渉する部分だけリポジトリ凍結して入れればいい」。improve_loop.py もこの一覧を使う)
+_SKILLS = os.path.join(REPO, ".claude/skills")
+TOOLKIT_DIRS = tuple(sorted(f".claude/skills/{d}/" for d in (os.listdir(_SKILLS) if os.path.isdir(_SKILLS) else [])
+                            if os.path.isfile(os.path.join(_SKILLS, d, "TOOLKIT.md"))))
 # フォルダごと置かないもの。/stress の候補(cases/)に事例5と同じ場面の依頼文がある(2026-10-09、grep)
-LEAK_DIRS = (".claude/skills/stress/",)
+LEAK_DIRS = (".claude/skills/stress/",) + TOOLKIT_DIRS
 MODEL = os.environ.get("RETEST_MODEL", "claude-opus-5-5")
 # 仕組み(.claude/reasoning/・フック)を入れる前の最後のコミット。比べる相手を変えるときは環境変数 RETEST_PREV_REF で指定する
 PREV_REF = os.environ.get("RETEST_PREV_REF", "12f8bd7")
