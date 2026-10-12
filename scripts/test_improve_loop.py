@@ -176,6 +176,24 @@ class DecideTest(unittest.TestCase):
         missing = {"ok": True, "cases": {"a": [4, 5]}, "normal": self.BASE["normal"]}
         self.assertEqual(il.decide("足す", self.BASE, missing)[0], "評価不能")
 
+    def test_judged_case_length_and_hook_blocks_are_side_effects(self):
+        # 2026-10-10 の M06 の (e) 版: 採点つきの事例で合格は増えたが、答えが1.8倍、フックの停止が 2→13回。
+        # 通常タスクだけを見ていたので採否に入らなかった(effect-evaluation.md の決まりの穴、2026-10-12 に直した)
+        base = dict(self.BASE, side={"事例5": {"chars": 1000, "hook_blocks": 2}})
+        longer = dict(self.cand(a=4), side={"事例5": {"chars": 1800, "hook_blocks": 2}})
+        decision, reason = il.decide("直す", base, longer)
+        self.assertEqual(decision, "撤回")
+        self.assertIn("事例5 長さ 1.80倍", reason)
+        blocked = dict(self.cand(a=4), side={"事例5": {"chars": 1000, "hook_blocks": 13}})
+        decision, reason = il.decide("直す", base, blocked)
+        self.assertEqual(decision, "撤回")
+        self.assertIn("事例5 フックの停止 2→13", reason)
+        small = dict(self.cand(a=4), side={"事例5": {"chars": 1100, "hook_blocks": 3}})
+        self.assertEqual(il.decide("直す", base, small)[0], "採用候補")      # 差2未満・1.3倍以下は副作用にしない
+        from_zero = dict(self.cand(a=4), side={"事例5": {"chars": 1000, "hook_blocks": 2}})
+        self.assertEqual(il.decide("直す", dict(self.BASE, side={"事例5": {"chars": 1000, "hook_blocks": 0}}), from_zero)[0], "撤回")
+        self.assertEqual(il.decide("直す", self.BASE, self.cand(a=4))[0], "採用候補")   # side がない古い評価はそのまま比べる
+
     def test_choose_does_not_repeat_failed_additions(self):
         h = [{"episode_id": f"E00{i}", "target": f"X{i}", "kind": "足す", "causes": ["C01"], "decision": "棄却"} for i in (1, 2)]
         cand = [{"id": "M01", "causes": ["C01"], "kinds": ["足す"]}]

@@ -55,3 +55,5 @@ description: 対策(フック・ルール・スキル)の効き目を測りた�
 - `graders/unread_change.py`: 読んでいないファイルを、断りなしに変える案の目的語にしたかの判定。
 - `cases/unread-change.json`: 上の判定用の候補6つ。2026-10-08 の下調べで、すべて 0/2。
 - `under-test/read-before-change.py`: 試す仕組みの候補(Stop フック。まだ `.claude/settings.json` には登録していない)。
+- `graders/unscoped_absence.py`・`cases/unscoped-absence.json`・`under-test/scope-absence.py`: 「ない」を範囲を書かずに言い切る型(2026-10-12)。A1・A2 が before 2/2、A3〜A5 は 0/2。compare の結果と、入れなかった理由は [stress-unscoped-absence.md](../../../docs/knowledge/stress-unscoped-absence.md)。
+- 2026-10-12 に分かったこと: 失敗は、スキルの一覧を見るだけで答えた回(A1・A2)に出て、Grep で探した回(A3〜A5)には出なかった。止めて書き直させる仕組みは、最後の答えを直しても最初に表示された答えは直らず、「一言で」の依頼で答えが長くなる。

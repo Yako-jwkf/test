@@ -134,7 +134,8 @@ def decide(kind, base, cand):
     """変更前(base)と変更後(cand)の評価から、採否を決まりで決める。戻り値: (決定, 理由)。
 
     評価の形: {"ok": bool, "cases": {名前: [合格, 採点した回数] か [合格, 採点した回数, 流した回数]},
-              "normal": {名前: {"passed", "n", "cost", "chars"}}}
+              "normal": {名前: {"passed", "n", "cost", "chars"}},
+              "side": {事例名: {"chars", "hook_blocks"}}(採点つきの事例の答えの長さとフックの停止。古い評価にはない)}
     足す・直す: 改善(合格が2回以上増えた事例がある)で、悪化も副作用もなければ採用候補。差なしは棄却。
     外す・まとめる: 悪化も副作用もなければ採用候補(減らす変更は、悪くならないことが目標)。
     悪化か副作用があれば撤回。評価がそろわなければ評価不能(成功に数えない)。
@@ -167,6 +168,17 @@ def decide(kind, base, cand):
         for m, label in (("cost", "費用"), ("chars", "長さ")):
             if b.get(m) and c.get(m, 0) / b[m] > RATIO:
                 side.append(f"{k} {label} {c[m] / b[m]:.2f}倍")
+    # 採点つきの事例の答えの長さ(中央値)とフックの停止(合計)。合格だけを見ると、止めて書き直させる対策の
+    # 代償(答えが長くなる・停止が増える)が採否に入らない(2026-10-10 の M06 の (e) 版で 1.8倍・2→13回、2026-10-12 に足した)
+    for k, b in base.get("side", {}).items():
+        c = cand.get("side", {}).get(k)
+        if not c:
+            continue
+        if b.get("chars") and c.get("chars", 0) / b["chars"] > RATIO:
+            side.append(f"{k} 長さ {c['chars'] / b['chars']:.2f}倍")
+        bb, cb = b.get("hook_blocks", 0), c.get("hook_blocks", 0)
+        if cb - bb >= PASS_DIFF and (bb == 0 or cb / bb > RATIO):
+            side.append(f"{k} フックの停止 {bb}→{cb}")
     if worse or side:
         return "撤回", "悪化: " + "、".join(worse + side) + note
     if kind in REDUCING:
@@ -463,7 +475,7 @@ class ClaudeEvaluator:
         self.out_root = out_root
 
     def evaluate(self, worktree, iteration):
-        res = {"ok": True, "cases": {}, "normal": {}, "cost_usd": 0.0, "dirs": [], "costs": {}}
+        res = {"ok": True, "cases": {}, "normal": {}, "side": {}, "cost_usd": 0.0, "dirs": [], "costs": {}}
         judge = Judge(worktree, self.judge_model)
         fp = fingerprint(worktree)
         for item in self.suite:
@@ -477,13 +489,14 @@ class ClaudeEvaluator:
                 if prev.get("fingerprint") == fp:
                     res["cases"].update(prev["cases"])
                     res["normal"].update(prev["normal"])
+                    res["side"].update(prev.get("side", {}))
                     res["dirs"].append(out)
                     res["costs"][f"事例{case}"] = 0.0
                     res.setdefault("reused", []).append(f"事例{case}")
                     continue
             shutil.rmtree(out, ignore_errors=True)
             os.makedirs(out)
-            before = (dict(res["cases"]), dict(res["normal"]))
+            before = (dict(res["cases"]), dict(res["normal"]), dict(res["side"]))
             with open(os.path.join(out, "plan.md"), "w", encoding="utf-8") as f:
                 f.write(f"測りたいもの: 自己改善ループの反復 {iteration} の評価(0 は変更前の基準値)\n"
                         f"使う条件: 事例{case} の全条件(mech、{self.runs} 回)\n"
@@ -512,6 +525,8 @@ class ClaudeEvaluator:
                 for k in conds:
                     vs = [s[k] for s in scored]
                     res["cases"][f"事例{case}-{k}"] = [vs.count("合格"), vs.count("合格") + vs.count("不合格"), len(runs)]
+                a = em.aggregate(runs)
+                res["side"][f"事例{case}"] = {"chars": a["chars"], "hook_blocks": a["hook_blocks"]}
             else:
                 a = em.aggregate(runs)
                 res["normal"][f"事例{case}-1"] = {"passed": a["passed"], "n": a["judged"], "cost": round(a["cost"], 4),
@@ -521,7 +536,8 @@ class ClaudeEvaluator:
             with open(done, "w", encoding="utf-8") as f:
                 json.dump({"fingerprint": fp, "cost_usd": round(spent, 4),
                            "cases": {k: v for k, v in res["cases"].items() if k not in before[0]},
-                           "normal": {k: v for k, v in res["normal"].items() if k not in before[1]}},
+                           "normal": {k: v for k, v in res["normal"].items() if k not in before[1]},
+                           "side": {k: v for k, v in res["side"].items() if k not in before[2]}},
                           f, ensure_ascii=False, indent=1)
         res["cost_usd"] = round(res["cost_usd"], 4)
         return res
