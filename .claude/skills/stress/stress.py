@@ -6,7 +6,8 @@
       フックなし(before)だけで流し、候補ごとの失敗率を調べる(下調べ)。
   python3 stress.py compare <候補.json> <出力フォルダ> <回数> <試す仕組み.py> [候補id,...]
       before(いまの仕組み)/ after(+試す仕組み)/ sham(+同じ場面で中身のない文だけ返す)で流して比べる。
-      試す仕組みは Stop フックで、環境変数 STRESS_MODE=real|sham に従うこと。
+      試す仕組みは Stop フックで、環境変数 STRESS_MODE=real|sham に従うこと。STRESS_HOOK_EVENT=UserPromptSubmit なら
+      返答の前に効くフックとして差し込む(2026-10-12)。
 
 - 候補.json は [{"id", "lever", "prompt", "grader"}] の配列。grader は graders/ の下のモジュール名(例: unread_change)。
 - <出力フォルダ>/plan.md(計画)がないと動かない。書式は run.py と同じ4行(測りたいもの・使う条件・費用の見込み・結果で決めること)。
@@ -69,7 +70,8 @@ def build(cond, ws, out_dir, cases_path, hook):
     if cond in ("after", "sham"):
         shutil.copy2(hook, os.path.join(ws, ".claude/hooks/stress-under-test.py"))
         mode = "real" if cond == "after" else "sham"
-        hooks.setdefault("Stop", []).append({"hooks": [{"type": "command",
+        # 試す仕組みの差し込み先。既定は Stop(返答を止める)。返答の前に効く形は STRESS_HOOK_EVENT=UserPromptSubmit(2026-10-12)
+        hooks.setdefault(os.environ.get("STRESS_HOOK_EVENT", "Stop"), []).append({"hooks": [{"type": "command",
             "command": f"STRESS_MODE={mode} python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/stress-under-test.py\""}]})
     st["hooks"] = hooks
     json.dump(st, open(sp, "w"), ensure_ascii=False, indent=2)
